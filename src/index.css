@@ -106,10 +106,6 @@
   pointer-events: none;
 }
 
-.overlay-layer > * {
-  pointer-events: auto;
-}
-
 @keyframes ticker {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }

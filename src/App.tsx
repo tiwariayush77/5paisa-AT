@@ -80,14 +80,14 @@ const BottomSheet = ({ isOpen, onClose, title, subtext, children }: { isOpen: bo
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-black/40 z-50"
+            className="absolute inset-0 bg-black/40 z-50 pointer-events-auto"
           />
           <motion.div 
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="absolute bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-white rounded-t-[24px] z-50 overflow-hidden flex flex-col max-h-[90%]"
+            className="absolute bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-white rounded-t-[24px] z-50 overflow-hidden flex flex-col max-h-[90%] pointer-events-auto"
           >
             <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mt-3 mb-2" />
             <div className="px-5 pb-4 border-b border-gray-100">
@@ -126,7 +126,7 @@ const Toast = ({ message, isVisible, onHide }: { message: string, isVisible: boo
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 20 }}
-          className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[100] bg-[#171A21] text-white px-4 py-2.5 rounded-full text-sm font-medium shadow-lg flex items-center gap-2 min-w-[240px] justify-center"
+          className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[100] bg-[#171A21] text-white px-4 py-2.5 rounded-full text-sm font-medium shadow-lg flex items-center gap-2 min-w-[240px] justify-center pointer-events-auto"
         >
           <CheckCircle2 size={16} className="text-green-400" />
           {message}
@@ -163,6 +163,12 @@ const TourOverlay = ({ step, onNext, onSkip, activeTab }: { step: number, onNext
       const shellRect = shell?.getBoundingClientRect() || { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
 
       if (step === 0) {
+        // Welcome step: ensure scroll is unlocked
+        const scroller = document.querySelector('.screen-viewport') as HTMLElement;
+        if (scroller) {
+          scroller.style.overflowY = 'auto';
+          scroller.style.pointerEvents = 'auto';
+        }
         setTimeout(() => setShowTooltip(true), 100);
         return;
       }
@@ -173,6 +179,7 @@ const TourOverlay = ({ step, onNext, onSkip, activeTab }: { step: number, onNext
         
         // 1. Unlock scroll for positioning
         scroller.style.overflowY = 'auto';
+        scroller.style.pointerEvents = 'auto';
         
         // 2. Scroll target into upper half
         const targetTop = target.offsetTop;
@@ -198,7 +205,7 @@ const TourOverlay = ({ step, onNext, onSkip, activeTab }: { step: number, onNext
 
         setTargetRect(relativeRect);
 
-        // 5. Lock scroll now that we are positioned
+        // 5. Lock scroll now that we are positioned (only for feature steps)
         scroller.style.overflowY = 'hidden';
 
         setTimeout(() => setShowTooltip(true), 200);
@@ -210,7 +217,11 @@ const TourOverlay = ({ step, onNext, onSkip, activeTab }: { step: number, onNext
     // Cleanup: ensure scroll is restored when step changes or unmounts
     return () => {
       const scroller = document.querySelector('.screen-viewport') as HTMLElement;
-      if (scroller) scroller.style.overflowY = 'auto';
+      if (scroller) {
+        scroller.style.overflowY = 'auto';
+        scroller.style.pointerEvents = 'auto';
+      }
+      document.body.style.overflow = '';
     };
   }, [step, activeTab]);
 
@@ -250,7 +261,7 @@ const TourOverlay = ({ step, onNext, onSkip, activeTab }: { step: number, onNext
   const current = tourContent[step];
 
   return (
-    <div className="absolute inset-0 z-[100] overflow-hidden pointer-events-none">
+    <div className="tour-overlay absolute inset-0 z-[100] overflow-hidden pointer-events-none">
       {/* Curtain overlay */}
       <AnimatePresence>
         {targetRect && (
@@ -258,7 +269,7 @@ const TourOverlay = ({ step, onNext, onSkip, activeTab }: { step: number, onNext
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 pointer-events-auto"
+            className="absolute inset-0 pointer-events-none"
           >
             <div className="absolute top-0 left-0 right-0 bg-black/40" style={{ height: targetRect.top - 4 }} />
             <div className="absolute bottom-0 left-0 right-0 bg-black/40" style={{ top: targetRect.top + targetRect.height + 4 }} />
@@ -271,7 +282,7 @@ const TourOverlay = ({ step, onNext, onSkip, activeTab }: { step: number, onNext
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/40 pointer-events-auto"
+            className="absolute inset-0 bg-black/40 pointer-events-none"
           />
         )}
       </AnimatePresence>
@@ -398,18 +409,54 @@ export default function App() {
     setToast({ visible: true, message });
   };
 
+  const cleanupTour = () => {
+    setShowTour(false);
+    setTourStep(0);
+    
+    // Hard reset all interaction locks
+    document.body.style.overflow = '';
+    document.body.style.pointerEvents = '';
+    
+    const viewport = document.querySelector('.screen-viewport') as HTMLElement;
+    if (viewport) {
+      viewport.style.overflowY = 'auto';
+      viewport.style.pointerEvents = 'auto';
+    }
+    
+    // Remove any potential highlight classes if they were added
+    document.querySelectorAll('.tour-highlight').forEach(el => el.classList.remove('tour-highlight'));
+    document.querySelectorAll('.tour-elevated').forEach(el => el.classList.remove('tour-elevated'));
+  };
+
   const handleTourNext = () => {
     if (tourStep === 0) {
       setActiveTab('Home');
       setTourStep(1);
     } else if (tourStep === 4) {
-      setShowTour(false);
-      setOverlapFromTour(true);
-      setIsOverlapSheetOpen(true);
+      cleanupTour();
+      // Wait a bit for cleanup to settle before opening the next sheet
+      setTimeout(() => {
+        setOverlapFromTour(true);
+        setIsOverlapSheetOpen(true);
+      }, 80);
     } else {
       setTourStep(prev => prev + 1);
     }
   };
+
+  // Safety guard: force reset interaction locks when tour closes
+  useEffect(() => {
+    if (!showTour) {
+      document.body.style.overflow = '';
+      document.body.style.pointerEvents = '';
+      
+      const viewport = document.querySelector('.screen-viewport') as HTMLElement;
+      if (viewport) {
+        viewport.style.overflowY = 'auto';
+        viewport.style.pointerEvents = 'auto';
+      }
+    }
+  }, [showTour]);
 
   const formattedTime = currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
   const isDay = currentTime.getHours() >= 6 && currentTime.getHours() < 18;
@@ -931,7 +978,7 @@ export default function App() {
             <TourOverlay 
               step={tourStep} 
               onNext={handleTourNext} 
-              onSkip={() => setShowTour(false)} 
+              onSkip={cleanupTour} 
               activeTab={activeTab}
             />
           )}
