@@ -80,14 +80,14 @@ const BottomSheet = ({ isOpen, onClose, title, subtext, children }: { isOpen: bo
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/40 z-50"
+            className="absolute inset-0 bg-black/40 z-50"
           />
           <motion.div 
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-white rounded-t-[24px] z-50 overflow-hidden flex flex-col max-h-[90vh]"
+            className="absolute bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-white rounded-t-[24px] z-50 overflow-hidden flex flex-col max-h-[90%]"
           >
             <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mt-3 mb-2" />
             <div className="px-5 pb-4 border-b border-gray-100">
@@ -126,7 +126,7 @@ const Toast = ({ message, isVisible, onHide }: { message: string, isVisible: boo
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 20 }}
-          className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[100] bg-[#171A21] text-white px-4 py-2.5 rounded-full text-sm font-medium shadow-lg flex items-center gap-2 min-w-[240px] justify-center"
+          className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[100] bg-[#171A21] text-white px-4 py-2.5 rounded-full text-sm font-medium shadow-lg flex items-center gap-2 min-w-[240px] justify-center"
         >
           <CheckCircle2 size={16} className="text-green-400" />
           {message}
@@ -137,9 +137,18 @@ const Toast = ({ message, isVisible, onHide }: { message: string, isVisible: boo
 };
 
 const TourOverlay = ({ step, onNext, onSkip, activeTab }: { step: number, onNext: () => void, onSkip: () => void, activeTab: string }) => {
-  const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const [targetRect, setTargetRect] = useState<{ top: number, left: number, width: number, height: number, borderRadius: string } | null>(null);
+  const [showTooltip, setShowTooltip] = useState(false);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    viewportRef.current = document.querySelector('.screen-viewport');
+  }, []);
+
+  useEffect(() => {
+    setShowTooltip(false);
+    setTargetRect(null);
+
     const getTarget = () => {
       if (step === 0) return null;
       const id = step === 1 ? 'tour-health' : 
@@ -149,43 +158,91 @@ const TourOverlay = ({ step, onNext, onSkip, activeTab }: { step: number, onNext
       return document.getElementById(id);
     };
 
-    // Small delay to allow tab content to render
-    const timer = setTimeout(() => {
-      const target = getTarget();
-      if (target) {
-        setTargetRect(target.getBoundingClientRect());
-      } else {
-        setTargetRect(null);
-      }
-    }, 100);
+    const updatePosition = async () => {
+      const shell = document.querySelector('.app-shell');
+      const shellRect = shell?.getBoundingClientRect() || { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
 
-    return () => clearTimeout(timer);
+      if (step === 0) {
+        setTimeout(() => setShowTooltip(true), 100);
+        return;
+      }
+
+      const target = getTarget();
+      if (target && viewportRef.current) {
+        const scroller = viewportRef.current;
+        
+        // 1. Unlock scroll for positioning
+        scroller.style.overflowY = 'auto';
+        
+        // 2. Scroll target into upper half
+        const targetTop = target.offsetTop;
+        scroller.scrollTo({
+          top: targetTop - 100,
+          behavior: 'smooth'
+        });
+        
+        // 3. Wait for scroll to settle
+        await new Promise(resolve => setTimeout(resolve, 450));
+
+        // 4. Get final dimensions
+        const rect = target.getBoundingClientRect();
+        const borderRadius = window.getComputedStyle(target).borderRadius;
+        
+        const relativeRect = {
+          top: rect.top - shellRect.top,
+          left: rect.left - shellRect.left,
+          width: rect.width,
+          height: rect.height,
+          borderRadius
+        };
+
+        setTargetRect(relativeRect);
+
+        // 5. Lock scroll now that we are positioned
+        scroller.style.overflowY = 'hidden';
+
+        setTimeout(() => setShowTooltip(true), 200);
+      }
+    };
+
+    updatePosition();
+    
+    // Cleanup: ensure scroll is restored when step changes or unmounts
+    return () => {
+      const scroller = document.querySelector('.screen-viewport') as HTMLElement;
+      if (scroller) scroller.style.overflowY = 'auto';
+    };
   }, [step, activeTab]);
 
   const tourContent = [
     {
-      title: "Welcome to the new 5paisa",
-      body: "We've embedded Portfolio Intelligence directly into your existing experience. No new apps, no complex tools—just smarter investing.",
-      button: "See what's new →"
+      title: "See what’s new in this 5paisa prototype",
+      body: "We’ve added 3 practical portfolio features inside the existing app flow — so users can understand portfolio quality, reduce overlap, and avoid missing tax actions.",
+      helper: "",
+      button: "Start tour"
     },
     {
-      title: "Your Portfolio Health",
-      body: "Start with one simple daily signal. We monitor your risk, diversification, and performance to give you a clear health score.",
+      title: "Start with one simple daily signal",
+      body: "This score gives users a quick read on portfolio quality — not just returns. It helps them understand if the portfolio is balanced, diversified, and tax-efficient.",
+      helper: "Why it matters: investors often track returns, but miss portfolio quality.",
       button: "Next →"
     },
     {
-      title: "Tax Harvest Alert",
-      body: "Catch tax-saving opportunities at the right time. We'll alert you when you can book gains to save on taxes before the deadline.",
+      title: "Catch tax-saving opportunities at the right time",
+      body: "This alert surfaces missed or upcoming tax actions in plain language. It turns a complicated year-end task into something visible and reviewable inside the app.",
+      helper: "Why it matters: tax efficiency is useful only when it is timely.",
       button: "Next →"
     },
     {
-      title: "Ask 5paisa Guide",
-      body: "Contextual help, without changing the app. Ask about your holdings, market moves, or these new AI features anytime.",
+      title: "Contextual help, without changing the app",
+      body: "This opens relevant prompts based on the screen the user is on. Guidance stays close to the decision instead of creating a separate AI journey.",
+      helper: "Why it matters: support should appear where confusion happens.",
       button: "Next →"
     },
     {
-      title: "Portfolio Overlap Analysis",
-      body: "Here is the clearest fix in your portfolio. See where you're paying double fees for the same stocks across different funds.",
+      title: "Here is the clearest fix in the portfolio",
+      body: "This card shows when multiple funds keep repeating the same stocks. It helps users see that more funds do not always mean better diversification.",
+      helper: "Why it matters: overlap is one of the easiest portfolio problems to act on.",
       button: "Open overlap →"
     }
   ];
@@ -193,67 +250,95 @@ const TourOverlay = ({ step, onNext, onSkip, activeTab }: { step: number, onNext
   const current = tourContent[step];
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <motion.div 
-        initial={{ opacity: 0 }} 
-        animate={{ opacity: 1 }} 
-        className="absolute inset-0 bg-[#171A21]/80 backdrop-blur-[2px]" 
-        onClick={onSkip}
-      />
+    <div className="absolute inset-0 z-[100] overflow-hidden pointer-events-none">
+      {/* Curtain overlay */}
+      <AnimatePresence>
+        {targetRect && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 pointer-events-auto"
+          >
+            <div className="absolute top-0 left-0 right-0 bg-black/40" style={{ height: targetRect.top - 4 }} />
+            <div className="absolute bottom-0 left-0 right-0 bg-black/40" style={{ top: targetRect.top + targetRect.height + 4 }} />
+            <div className="absolute left-0 bg-black/40" style={{ top: targetRect.top - 4, height: targetRect.height + 8, width: targetRect.left - 4 }} />
+            <div className="absolute right-0 bg-black/40" style={{ top: targetRect.top - 4, height: targetRect.height + 8, left: targetRect.left + targetRect.width + 4 }} />
+          </motion.div>
+        )}
+        {!targetRect && step === 0 && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-black/40 pointer-events-auto"
+          />
+        )}
+      </AnimatePresence>
       
+      {/* Spotlight */}
       {targetRect && (
-        <div 
-          className="absolute border-2 border-white rounded-2xl shadow-[0_0_0_9999px_rgba(23,26,33,0.8)] z-10 transition-all duration-500"
+        <motion.div 
+          initial={{ opacity: 0, scale: 1 }}
+          animate={{ opacity: 1, scale: [1, 1.02, 1] }}
+          transition={{ scale: { duration: 0.6, times: [0, 0.5, 1], ease: "easeInOut" } }}
+          className="absolute z-10 pointer-events-none"
           style={{
-            top: targetRect.top - 8,
-            left: targetRect.left - 8,
-            width: targetRect.width + 16,
-            height: targetRect.height + 16,
+            top: targetRect.top - 6,
+            left: targetRect.left - 6,
+            width: targetRect.width + 12,
+            height: targetRect.height + 12,
+            borderRadius: `calc(${targetRect.borderRadius} + 4px)`,
+            border: '2px solid rgba(227,28,61,0.95)',
+            boxShadow: '0 0 0 4px rgba(227,28,61,0.12), 0 8px 24px rgba(227,28,61,0.14)',
           }}
         />
       )}
 
-      <motion.div 
-        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        className={`relative z-20 bg-white rounded-[24px] p-6 shadow-2xl w-full max-w-[320px] ${step === 0 ? '' : 'mt-auto mb-24'}`}
-      >
-        <div className="flex justify-between items-start mb-4">
-          <div className="bg-[#E31C3D]/10 px-2 py-1 rounded-md">
-            <span className="text-[10px] font-bold text-[#E31C3D] uppercase tracking-wider">Guided Tour</span>
-          </div>
-          <button onClick={onSkip} className="text-[#98A2B3] hover:text-[#171A21]">
-            <X size={20} />
-          </button>
-        </div>
-        
-        <h3 className="text-[18px] font-black text-[#171A21] mb-2 leading-tight">{current.title}</h3>
-        <p className="text-[13px] text-[#667085] leading-relaxed mb-6">
-          {current.body}
-        </p>
+      {/* Coachmark / Welcome Card */}
+      <AnimatePresence>
+        {showTooltip && (
+          <motion.div 
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            className={`absolute z-[110] bg-white rounded-[24px] p-4 shadow-[0_20px_40px_rgba(17,24,39,0.16)] pointer-events-auto flex flex-col ${step === 0 ? 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-32px)]' : 'bottom-[84px] left-4 right-4'}`}
+            style={{ maxHeight: '42%' }}
+          >
+            <div className="flex justify-between items-start mb-2.5">
+              <span className="px-2 py-0.5 bg-[#EEF4FF] text-[#2563EB] text-[9px] font-black uppercase tracking-wider rounded">Guided Tour</span>
+              <button onClick={onSkip} className="p-1 text-[#98A2B3] hover:text-[#171A21]">
+                <X size={18} />
+              </button>
+            </div>
 
-        <div className="flex items-center justify-between">
-          <div className="flex gap-1.5">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <div 
-                key={i} 
-                className={`h-1.5 rounded-full transition-all duration-300 ${i === step ? 'w-4 bg-[#E31C3D]' : 'w-1.5 bg-[#E7EBF2]'}`} 
-              />
-            ))}
-          </div>
-          <div className="flex gap-3">
-            {step > 0 && (
-              <button onClick={onSkip} className="text-[13px] font-bold text-[#667085]">Skip</button>
-            )}
-            <button 
-              onClick={onNext}
-              className="px-5 py-2.5 bg-[#171A21] text-white rounded-xl text-[13px] font-bold shadow-lg shadow-black/10"
-            >
-              {current.button}
-            </button>
-          </div>
-        </div>
-      </motion.div>
+            <div className="overflow-y-auto pr-1 custom-scrollbar">
+              <h3 className="text-sm font-bold text-[#171A21] leading-tight mb-2">{current.title}</h3>
+              <p className="text-xs text-[#667085] leading-[1.55]">{current.body}</p>
+              {current.helper && (
+                <p className="text-[11px] text-[#98A2B3] font-medium mt-2 italic">{current.helper}</p>
+              )}
+            </div>
+
+            <div className="flex justify-between items-center gap-3 mt-4 pt-2 border-t border-[#F5F7FB]">
+              <div className="flex gap-1.5">
+                {tourContent.map((_, i) => (
+                  <div key={i} className={`w-1.5 h-1.5 rounded-full ${i === step ? 'bg-[#E31C3D]' : 'bg-[#E7EBF2]'}`} />
+                ))}
+              </div>
+              <div className="flex items-center gap-4">
+                <button onClick={onSkip} className="text-xs font-medium text-[#667085]">Skip</button>
+                <button 
+                  onClick={onNext}
+                  className="min-w-[96px] h-11 bg-[#171A21] text-white rounded-[14px] text-xs font-bold flex items-center justify-center px-4 shadow-lg shadow-black/10"
+                >
+                  {current.button}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -291,20 +376,38 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
+  // Scroll locking for tour and sheets
+  useEffect(() => {
+    const viewport = document.querySelector('.screen-viewport') as HTMLElement;
+    const isSheetOpen = isHealthSheetOpen || isOverlapSheetOpen || isTaxSheetOpen || isAskSheetOpen || isConfirmSheetOpen;
+    
+    // Only lock globally if a sheet is open. 
+    // TourOverlay handles its own locking for feature steps to allow programmatic scrolling.
+    if (isSheetOpen) {
+      if (viewport) viewport.style.overflowY = 'hidden';
+      document.body.style.overflow = 'hidden';
+    } else {
+      // If no sheet is open, we generally want it auto, 
+      // UNLESS TourOverlay has locked it (which it does internally for feature steps)
+      if (viewport && !showTour) viewport.style.overflowY = 'auto';
+      document.body.style.overflow = 'auto';
+    }
+  }, [showTour, isHealthSheetOpen, isOverlapSheetOpen, isTaxSheetOpen, isAskSheetOpen, isConfirmSheetOpen]);
+
   const showSuccessToast = (message: string) => {
     setToast({ visible: true, message });
   };
 
   const handleTourNext = () => {
-    if (tourStep === 3) {
-      setActiveTab('Portfolio');
-      setTourStep(4);
-    } else if (tourStep < 4) {
-      setTourStep(tourStep + 1);
-    } else {
+    if (tourStep === 0) {
+      setActiveTab('Home');
+      setTourStep(1);
+    } else if (tourStep === 4) {
       setShowTour(false);
       setOverlapFromTour(true);
       setIsOverlapSheetOpen(true);
+    } else {
+      setTourStep(prev => prev + 1);
     }
   };
 
@@ -564,7 +667,7 @@ export default function App() {
   );
 
   const renderSimpleScreen = (title: string, subtitle: string, content: React.ReactNode) => (
-    <div className="px-4 pb-24">
+    <div className="px-[14px] pb-24">
       <div className="py-6">
         <h2 className="text-2xl font-bold text-[#171A21]">{title}</h2>
         <p className="text-sm text-[#667085] mt-1 leading-relaxed">{subtitle}</p>
@@ -623,6 +726,78 @@ export default function App() {
           <ChevronRight size={18} className="text-[#98A2B3]" />
         </div>
       ))}
+    </div>
+  );
+
+  const renderHealthSheetContent = () => (
+    <div className="space-y-6">
+      <div className="bg-[#FAFBFE] p-6 rounded-[24px] border border-[#E7EBF2] flex flex-col items-center text-center">
+        <div className="relative w-28 h-28 flex items-center justify-center mb-4">
+          <svg className="w-full h-full -rotate-90">
+            <circle cx="56" cy="56" r="50" fill="transparent" stroke="#E7EBF2" strokeWidth="8" />
+            <circle cx="56" cy="56" r="50" fill="transparent" stroke="#16A34A" strokeWidth="8" strokeDasharray={314} strokeDashoffset={314 * (1 - 0.78)} strokeLinecap="round" />
+          </svg>
+          <span className="absolute text-3xl font-black text-[#171A21]">78</span>
+        </div>
+        <p className="text-sm font-bold text-[#171A21] leading-relaxed px-4">Your portfolio is doing well on returns, but diversification needs work.</p>
+      </div>
+
+      <div className="space-y-3">
+        {[
+          { label: 'Diversification', score: '48/100', desc: 'Several funds repeat the same top holdings.' },
+          { label: 'Returns vs Benchmark', score: '71/100', desc: 'Current performance is ahead of your benchmark.' },
+          { label: 'Tax Efficiency', score: '54/100', desc: 'Some LTCG opportunities were missed this year.' },
+          { label: 'Risk Balance', score: '63/100', desc: 'Overall risk is manageable, but concentration is rising.' },
+        ].map((m, i) => (
+          <div key={i} className="flex justify-between items-start gap-4 p-1">
+            <div className="flex-1">
+              <div className="flex justify-between mb-1">
+                <span className="text-sm font-bold text-[#171A21]">{m.label}</span>
+                <span className="text-sm font-black text-[#171A21]">{m.score}</span>
+              </div>
+              <p className="text-xs text-[#667085]">{m.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-2">
+        <h4 className="text-xs font-bold text-[#98A2B3] uppercase tracking-wider">What’s pulling your score down</h4>
+        <p className="text-sm text-[#171A21] leading-relaxed">High fund overlap is the main issue. You also came very close to the annual LTCG exemption limit without using it fully.</p>
+      </div>
+
+      <div className="space-y-3">
+        <h4 className="text-xs font-bold text-[#98A2B3] uppercase tracking-wider">Top 3 actions to improve</h4>
+        <div className="space-y-2">
+          {['Reduce one overlapping fund.', 'Set a year-end tax reminder.', 'Review SIP allocation once this month.'].map((a, i) => (
+            <div key={i} className="flex gap-3 items-start">
+              <span className="w-5 h-5 bg-[#EEF4FF] text-[#2563EB] rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0 mt-0.5">{i+1}</span>
+              <p className="text-sm text-[#171A21] font-medium">{a}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-3 pt-2">
+        <button 
+          onClick={() => { setIsHealthSheetOpen(false); setIsOverlapSheetOpen(true); }}
+          className="w-full py-3.5 bg-[#171A21] text-white rounded-xl font-bold"
+        >
+          Fix overlap
+        </button>
+        <button 
+          onClick={() => { setIsHealthSheetOpen(false); setIsTaxSheetOpen(true); }}
+          className="w-full py-3.5 bg-white border border-[#E7EBF2] text-[#171A21] rounded-xl font-bold"
+        >
+          View tax opportunities
+        </button>
+        <button 
+          onClick={() => setIsHealthSheetOpen(false)}
+          className="w-full py-3.5 bg-white text-[#667085] rounded-xl font-bold text-sm"
+        >
+          Review portfolio
+        </button>
+      </div>
     </div>
   );
 
@@ -693,357 +868,296 @@ export default function App() {
   };
 
   return (
-    <div className="flex justify-center min-h-screen bg-[#F5F7FB]">
-      <div className="w-full max-w-[430px] bg-[#F5F7FB] relative flex flex-col shadow-2xl min-h-screen">
+    <div className="page-root">
+      <div className="app-shell">
         
-        {renderHeader()}
-        {renderTicker()}
-        {renderModeToggle()}
+        {/* Top Chrome */}
+        <div className="top-chrome">
+          {renderHeader()}
+          {renderTicker()}
+          {renderModeToggle()}
+        </div>
 
-        <main className="flex-1">
+        {/* Screen Viewport - Only this scrolls */}
+        <div className="screen-viewport custom-scrollbar">
           {activeTab === 'Home' && renderHome()}
           {activeTab === 'Portfolio' && renderPortfolio()}
           {activeTab === 'Markets' && renderMarkets()}
           {activeTab === 'Orders' && renderOrders()}
           {activeTab === 'More' && renderMore()}
-        </main>
+        </div>
+
+        {/* FAB Layer */}
+        {mode === 'AI' && (
+          <div className="fab-layer">
+            <motion.button 
+              id="ask-button"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => { setIsAskSheetOpen(true); setSelectedPrompt(null); }}
+              className="ask-fab w-14 h-14 bg-[#14B8A6] text-white rounded-full shadow-lg flex items-center justify-center pointer-events-auto"
+            >
+              <Sparkles size={24} />
+            </motion.button>
+          </div>
+        )}
 
         {/* Bottom Navigation */}
-        <nav className="fixed bottom-0 w-full max-w-[430px] h-[64px] bg-white border-t border-[#E7EBF2] flex items-center justify-around px-2 z-40">
-          {[
-            { id: 'Home', icon: HomeIcon, label: 'Home' },
-            { id: 'Portfolio', icon: Briefcase, label: 'Portfolio' },
-            { id: 'Markets', icon: TrendingUp, label: 'Markets' },
-            { id: 'Orders', icon: ClipboardList, label: 'Orders' },
-            { id: 'More', icon: MoreHorizontal, label: 'More' },
-          ].map((tab) => (
-            <button 
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as Tab)}
-              className="flex flex-col items-center justify-center gap-1 relative h-full flex-1"
-            >
-              <tab.icon size={20} className={activeTab === tab.id ? 'text-[#E31C3D]' : 'text-[#98A2B3]'} />
-              <span className={`text-[10px] font-bold ${activeTab === tab.id ? 'text-[#E31C3D]' : 'text-[#98A2B3]'}`}>{tab.label}</span>
-            </button>
-          ))}
-        </nav>
+        <div className="bottom-nav-area">
+          <nav className="h-[64px] bg-white border-t border-[#E7EBF2] flex items-center justify-around px-2 relative">
+            {[
+              { id: 'Home', icon: HomeIcon, label: 'Home' },
+              { id: 'Portfolio', icon: Briefcase, label: 'Portfolio' },
+              { id: 'Markets', icon: TrendingUp, label: 'Markets' },
+              { id: 'Orders', icon: ClipboardList, label: 'Orders' },
+              { id: 'More', icon: MoreHorizontal, label: 'More' },
+            ].map((tab) => (
+              <button 
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as Tab)}
+                className="flex flex-col items-center justify-center gap-1 relative h-full flex-1"
+              >
+                <tab.icon size={20} className={activeTab === tab.id ? 'text-[#E31C3D]' : 'text-[#98A2B3]'} />
+                <span className={`text-[10px] font-bold ${activeTab === tab.id ? 'text-[#E31C3D]' : 'text-[#98A2B3]'}`}>{tab.label}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
 
-        {/* Contextual Ask Button */}
-        {mode === 'AI' && (
-          <motion.button 
-            id="ask-button"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => { setIsAskSheetOpen(true); setSelectedPrompt(null); }}
-            className="fixed bottom-[76px] right-[max(14px,calc((100vw-430px)/2+14px))] w-14 h-14 bg-[#14B8A6] text-white rounded-full shadow-lg flex items-center justify-center z-40"
+        {/* Overlay Layer */}
+        <div className="overlay-layer">
+          {/* Tour */}
+          {showTour && (
+            <TourOverlay 
+              step={tourStep} 
+              onNext={handleTourNext} 
+              onSkip={() => setShowTour(false)} 
+              activeTab={activeTab}
+            />
+          )}
+
+          {/* Sheets */}
+          <BottomSheet 
+            isOpen={isHealthSheetOpen} 
+            onClose={() => setIsHealthSheetOpen(false)} 
+            title="Portfolio Health Report"
+            subtext="Your portfolio score is 78/100. Here's how to improve it."
           >
-            <Sparkles size={24} />
-          </motion.button>
-        )}
+            {renderHealthSheetContent()}
+          </BottomSheet>
 
-        {/* Bottom Sheets */}
-        
-        {/* Portfolio Health Detail */}
-        <BottomSheet 
-          isOpen={isHealthSheetOpen} 
-          onClose={() => setIsHealthSheetOpen(false)} 
-          title="Portfolio Health"
-          subtext="A quick view of how your portfolio is doing."
-        >
-          <div className="space-y-6">
-            <div className="bg-[#FAFBFE] p-6 rounded-[24px] border border-[#E7EBF2] flex flex-col items-center text-center">
-              <div className="relative w-28 h-28 flex items-center justify-center mb-4">
-                <svg className="w-full h-full -rotate-90">
-                  <circle cx="56" cy="56" r="50" fill="transparent" stroke="#E7EBF2" strokeWidth="8" />
-                  <circle cx="56" cy="56" r="50" fill="transparent" stroke="#16A34A" strokeWidth="8" strokeDasharray={314} strokeDashoffset={314 * (1 - 0.62)} strokeLinecap="round" />
-                </svg>
-                <span className="absolute text-3xl font-black text-[#171A21]">62</span>
-              </div>
-              <p className="text-sm font-bold text-[#171A21] leading-relaxed px-4">Your portfolio is doing well on returns, but diversification needs work.</p>
-            </div>
-
-            <div className="space-y-3">
-              {[
-                { label: 'Diversification', score: '48/100', desc: 'Several funds repeat the same top holdings.' },
-                { label: 'Returns vs Benchmark', score: '71/100', desc: 'Current performance is ahead of your benchmark.' },
-                { label: 'Tax Efficiency', score: '54/100', desc: 'Some LTCG opportunities were missed this year.' },
-                { label: 'Risk Balance', score: '63/100', desc: 'Overall risk is manageable, but concentration is rising.' },
-              ].map((m, i) => (
-                <div key={i} className="flex justify-between items-start gap-4 p-1">
-                  <div className="flex-1">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-sm font-bold text-[#171A21]">{m.label}</span>
-                      <span className="text-sm font-black text-[#171A21]">{m.score}</span>
-                    </div>
-                    <p className="text-xs text-[#667085]">{m.desc}</p>
-                  </div>
+          <BottomSheet 
+            isOpen={isOverlapSheetOpen} 
+            onClose={() => { setIsOverlapSheetOpen(false); setOverlapFromTour(false); }} 
+            title="Overlap Analysis"
+            subtext={overlapFromTour ? "We've identified high overlap in your portfolio." : "See where your funds are repeating stocks."}
+          >
+            <div className="space-y-6">
+              <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle size={16} className="text-amber-600" />
+                  <h3 className="text-sm font-bold text-[#171A21]">High Overlap Detected</h3>
                 </div>
-              ))}
-            </div>
-
-            <div className="space-y-2">
-              <h4 className="text-xs font-bold text-[#98A2B3] uppercase tracking-wider">What’s pulling your score down</h4>
-              <p className="text-sm text-[#171A21] leading-relaxed">High fund overlap is the main issue. You also came very close to the annual LTCG exemption limit without using it fully.</p>
-            </div>
-
-            <div className="space-y-3">
-              <h4 className="text-xs font-bold text-[#98A2B3] uppercase tracking-wider">Top 3 actions to improve</h4>
-              <div className="space-y-2">
-                {['Reduce one overlapping fund.', 'Set a year-end tax reminder.', 'Review SIP allocation once this month.'].map((a, i) => (
-                  <div key={i} className="flex gap-3 items-start">
-                    <span className="w-5 h-5 bg-[#EEF4FF] text-[#2563EB] rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0 mt-0.5">{i+1}</span>
-                    <p className="text-sm text-[#171A21] font-medium">{a}</p>
-                  </div>
-                ))}
+                <p className="text-xs text-[#667085] leading-relaxed">
+                  Your UTI Flexi Cap and Parag Parikh Flexi Cap funds have a <span className="font-bold text-[#171A21]">64% overlap</span>. You are paying double fees for the same stocks.
+                </p>
               </div>
-            </div>
 
-            <div className="space-y-3 pt-2">
-              <button 
-                onClick={() => { setIsHealthSheetOpen(false); setIsOverlapSheetOpen(true); }}
-                className="w-full py-3.5 bg-[#171A21] text-white rounded-xl font-bold"
-              >
-                Fix overlap
-              </button>
-              <button 
-                onClick={() => { setIsHealthSheetOpen(false); setIsTaxSheetOpen(true); }}
-                className="w-full py-3.5 bg-white border border-[#E7EBF2] text-[#171A21] rounded-xl font-bold"
-              >
-                View tax opportunities
-              </button>
-              <button 
-                onClick={() => setIsHealthSheetOpen(false)}
-                className="w-full py-3.5 bg-white text-[#667085] rounded-xl font-bold text-sm"
-              >
-                Review portfolio
-              </button>
-            </div>
-          </div>
-        </BottomSheet>
-
-        {/* Overlap Analysis Detail */}
-        <BottomSheet 
-          isOpen={isOverlapSheetOpen} 
-          onClose={() => { setIsOverlapSheetOpen(false); setOverlapFromTour(false); }} 
-          title={overlapFromTour ? "Let’s start with the biggest issue" : "Portfolio Overlap"}
-          subtext="Your funds are more repetitive than they appear."
-        >
-          <div className="space-y-6">
-            <div className="flex items-center gap-4 bg-amber-50 p-4 rounded-2xl border border-amber-100">
-              <div className="text-3xl font-black text-amber-700">64%</div>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-amber-900 leading-tight">7 funds, but only 3 truly different portfolios.</p>
-                <span className="inline-block mt-1 px-2 py-0.5 bg-amber-200 text-amber-800 text-[9px] font-black uppercase rounded">Most actionable issue</span>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <h4 className="text-xs font-bold text-[#98A2B3] uppercase tracking-wider">What’s repeating</h4>
-              <div className="space-y-3">
-                {OVERLAP_STOCKS.map((s, i) => (
-                  <div key={i} className="space-y-1.5">
-                    <div className="flex justify-between text-xs font-bold">
-                      <span className="text-[#171A21]">{s.name}</span>
-                      <span className="text-[#667085]">{s.count}</span>
+              <div className="space-y-4">
+                <h4 className="text-xs font-bold text-[#98A2B3] uppercase tracking-wider">What’s repeating</h4>
+                <div className="space-y-3">
+                  {OVERLAP_STOCKS.map((s, i) => (
+                    <div key={i} className="space-y-1.5">
+                      <div className="flex justify-between text-xs font-bold">
+                        <span className="text-[#171A21]">{s.name}</span>
+                        <span className="text-[#667085]">{s.count}</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-amber-500 rounded-full" style={{ width: `${s.percentage}%` }} />
+                      </div>
                     </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-amber-500 rounded-full" style={{ width: `${s.percentage}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <h4 className="text-xs font-bold text-[#98A2B3] uppercase tracking-wider">Most overlapping funds</h4>
-              <div className="space-y-3">
-                {OVERLAPPING_FUNDS.map((f, i) => (
-                  <div key={i} className="bg-white p-3.5 rounded-xl border border-[#E7EBF2] flex justify-between items-center">
-                    <div>
-                      <p className="text-sm font-bold text-[#171A21]">{f.name}</p>
-                      <p className="text-[10px] text-[#667085] font-medium mt-0.5">{f.type}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-black text-amber-600">{f.overlap}</p>
-                      <p className="text-[10px] text-[#98A2B3] font-medium mt-0.5">{f.repeated}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-[#FAFBFE] p-5 rounded-[24px] border border-[#E7EBF2]">
-              <h4 className="text-sm font-bold text-[#171A21] mb-2">What can you do?</h4>
-              <p className="text-sm text-[#667085] leading-relaxed mb-4">Consider stopping the UTI Flexi Cap SIP and redirecting ₹500/month to a lower-overlap fund.</p>
-              <div className="flex gap-2">
-                {['Overlap falls: 64% → 38%', 'Saves ₹540/year', 'Improves diversification'].map((p, i) => (
-                  <div key={i} className="bg-white px-2 py-1 rounded-md border border-[#E7EBF2]">
-                    <span className="text-[9px] font-bold text-[#171A21]">{p}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button 
-                onClick={() => setIsConfirmSheetOpen(true)}
-                className="flex-1 py-3.5 bg-[#171A21] text-white rounded-xl font-bold"
-              >
-                Try this change
-              </button>
-              <button 
-                onClick={() => { setIsOverlapSheetOpen(false); showSuccessToast("We will remind you later"); }}
-                className="flex-1 py-3.5 bg-white border border-[#E7EBF2] text-[#171A21] rounded-xl font-bold"
-              >
-                Remind me later
-              </button>
-            </div>
-          </div>
-        </BottomSheet>
-
-        {/* Change Confirmation Sheet */}
-        <BottomSheet 
-          isOpen={isConfirmSheetOpen} 
-          onClose={() => setIsConfirmSheetOpen(false)} 
-          title="Try this change"
-        >
-          <div className="space-y-6">
-            <p className="text-sm text-[#667085] leading-relaxed">Stop UTI Flexi Cap SIP and redirect ₹500/month to a lower-overlap index fund.</p>
-            
-            <div className="bg-[#EEF9F1] p-4 rounded-2xl border border-[#16A34A]/10">
-              <h4 className="text-xs font-bold text-[#16A34A] uppercase tracking-wider mb-3">Expected impact</h4>
-              <div className="space-y-2">
-                {['Overlap 64% → 38%', '₹540/year fee saving', 'Cleaner diversification'].map((c, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <CheckCircle2 size={14} className="text-[#16A34A]" />
-                    <span className="text-sm font-bold text-[#171A21]">{c}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-4">
-              <button 
-                onClick={() => { setIsConfirmSheetOpen(false); setIsOverlapSheetOpen(false); showSuccessToast("Change flow opened in demo"); }}
-                className="flex-1 py-3.5 bg-[#E31C3D] text-white rounded-xl font-bold"
-              >
-                Proceed in demo
-              </button>
-              <button 
-                onClick={() => setIsConfirmSheetOpen(false)}
-                className="flex-1 py-3.5 bg-white border border-[#E7EBF2] text-[#171A21] rounded-xl font-bold"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </BottomSheet>
-
-        {/* Tax Harvest Detail */}
-        <BottomSheet 
-          isOpen={isTaxSheetOpen} 
-          onClose={() => setIsTaxSheetOpen(false)} 
-          title="Tax Harvest Alert"
-          subtext="Review before year-end and plan better next year."
-        >
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: 'LTCG gains', val: '₹1,24,200', color: 'text-[#171A21]' },
-                { label: 'STCG gains', val: '₹8,400', color: 'text-[#171A21]' },
-                { label: 'Missed saving', val: '₹15,500', color: 'text-[#DC2626]' },
-                { label: 'Status', val: 'Review now', color: 'text-amber-600' },
-              ].map((item, i) => (
-                <div key={i} className="bg-[#FAFBFE] p-3.5 rounded-xl border border-[#E7EBF2]">
-                  <p className="text-[10px] text-[#98A2B3] font-bold uppercase">{item.label}</p>
-                  <p className={`text-sm font-black mt-0.5 tabular-nums ${item.color}`}>{item.val}</p>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
 
-            <div className="space-y-3">
-              <h4 className="text-xs font-bold text-[#98A2B3] uppercase tracking-wider">Opportunity list</h4>
               <div className="space-y-3">
+                <h4 className="text-xs font-bold text-[#98A2B3] uppercase tracking-wider">Most overlapping funds</h4>
+                <div className="space-y-3">
+                  {OVERLAPPING_FUNDS.map((f, i) => (
+                    <div key={i} className="bg-white p-3.5 rounded-xl border border-[#E7EBF2] flex justify-between items-center">
+                      <div>
+                        <p className="text-sm font-bold text-[#171A21]">{f.name}</p>
+                        <p className="text-[10px] text-[#667085] font-medium mt-0.5">{f.type}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-black text-amber-600">{f.overlap}</p>
+                        <p className="text-[10px] text-[#98A2B3] font-medium mt-0.5">{f.repeated}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-[#FAFBFE] p-5 rounded-[24px] border border-[#E7EBF2]">
+                <h4 className="text-sm font-bold text-[#171A21] mb-2">What can you do?</h4>
+                <p className="text-sm text-[#667085] leading-relaxed mb-4">Consider stopping the UTI Flexi Cap SIP and redirecting ₹500/month to a lower-overlap fund.</p>
+                <div className="flex gap-2">
+                  {['Overlap falls: 64% → 38%', 'Saves ₹540/year', 'Improves diversification'].map((p, i) => (
+                    <div key={i} className="bg-white px-2 py-1 rounded-md border border-[#E7EBF2]">
+                      <span className="text-[9px] font-bold text-[#171A21]">{p}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button 
+                  onClick={() => setIsConfirmSheetOpen(true)}
+                  className="flex-1 py-3.5 bg-[#171A21] text-white rounded-xl font-bold"
+                >
+                  Try this change
+                </button>
+                <button 
+                  onClick={() => { setIsOverlapSheetOpen(false); showSuccessToast("We will remind you later"); }}
+                  className="flex-1 py-3.5 bg-white border border-[#E7EBF2] text-[#171A21] rounded-xl font-bold"
+                >
+                  Remind me later
+                </button>
+              </div>
+            </div>
+          </BottomSheet>
+
+          <BottomSheet 
+            isOpen={isConfirmSheetOpen} 
+            onClose={() => setIsConfirmSheetOpen(false)} 
+            title="Try this change"
+          >
+            <div className="space-y-6">
+              <p className="text-sm text-[#667085] leading-relaxed">Stop UTI Flexi Cap SIP and redirect ₹500/month to a lower-overlap index fund.</p>
+              
+              <div className="bg-[#EEF9F1] p-4 rounded-2xl border border-[#16A34A]/10">
+                <h4 className="text-xs font-bold text-[#16A34A] uppercase tracking-wider mb-3">Expected impact</h4>
+                <div className="space-y-2">
+                  {['Overlap 64% → 38%', '₹540/year fee saving', 'Cleaner diversification'].map((c, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <CheckCircle2 size={14} className="text-[#16A34A]" />
+                      <span className="text-sm font-bold text-[#171A21]">{c}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button 
+                  onClick={() => { setIsConfirmSheetOpen(false); setIsOverlapSheetOpen(false); showSuccessToast("Change flow opened in demo"); }}
+                  className="flex-1 py-3.5 bg-[#E31C3D] text-white rounded-xl font-bold"
+                >
+                  Proceed in demo
+                </button>
+                <button 
+                  onClick={() => setIsConfirmSheetOpen(false)}
+                  className="flex-1 py-3.5 bg-white border border-[#E7EBF2] text-[#171A21] rounded-xl font-bold"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </BottomSheet>
+
+          <BottomSheet 
+            isOpen={isTaxSheetOpen} 
+            onClose={() => setIsTaxSheetOpen(false)} 
+            title="Tax Harvest Alert"
+            subtext="Review before year-end and plan better next year."
+          >
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-3">
                 {[
-                  { name: 'HDFC Flexi Cap', action: 'Book partial gains before Mar 31', save: '₹6,400' },
-                  { name: 'Parag Parikh Flexi Cap', action: 'Redeem selected units', save: '₹4,100' },
-                  { name: 'SBI Nifty 50 Index', action: 'Use remaining exemption window', save: '₹5,000' },
-                ].map((o, i) => (
-                  <div key={i} className="bg-white p-4 rounded-xl border border-[#E7EBF2] flex justify-between items-start">
-                    <div>
-                      <p className="text-sm font-bold text-[#171A21]">{o.name}</p>
-                      <p className="text-xs text-[#667085] mt-0.5">{o.action}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs font-black text-[#16A34A] tabular-nums">+{o.save}</p>
-                      <p className="text-[9px] text-[#98A2B3] font-bold uppercase mt-0.5">Saved</p>
-                    </div>
+                  { label: 'LTCG gains', val: '₹1,24,200', color: 'text-[#171A21]' },
+                  { label: 'STCG gains', val: '₹8,400', color: 'text-[#171A21]' },
+                  { label: 'Missed saving', val: '₹15,500', color: 'text-[#DC2626]' },
+                  { label: 'Status', val: 'Review now', color: 'text-amber-600' },
+                ].map((item, i) => (
+                  <div key={i} className="bg-[#FAFBFE] p-3.5 rounded-xl border border-[#E7EBF2]">
+                    <p className="text-[10px] text-[#98A2B3] font-bold uppercase">{item.label}</p>
+                    <p className={`text-sm font-black mt-0.5 tabular-nums ${item.color}`}>{item.val}</p>
                   </div>
                 ))}
               </div>
-            </div>
 
-            <div className="space-y-3">
-              <h4 className="text-xs font-bold text-[#98A2B3] uppercase tracking-wider">Plan better next year</h4>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { label: 'Set March reminder', action: () => showSuccessToast("March reminder set successfully") },
-                  { label: 'Track LTCG threshold live', action: () => {} },
-                  { label: 'Download tax-ready P&L', action: () => {} },
-                ].map((c, i) => (
-                  <button key={i} onClick={c.action} className="px-3 py-2 bg-[#F5F7FB] border border-[#E7EBF2] rounded-full text-xs font-bold text-[#171A21]">
-                    {c.label}
-                  </button>
-                ))}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-[#98A2B3] uppercase tracking-wider">Opportunity list</h4>
+                <div className="space-y-3">
+                  {[
+                    { name: 'HDFC Flexi Cap', action: 'Book partial gains before Mar 31', save: '₹6,400' },
+                    { name: 'Parag Parikh Flexi Cap', action: 'Redeem selected units', save: '₹4,100' },
+                    { name: 'SBI Nifty 50 Index', action: 'Use remaining exemption window', save: '₹5,000' },
+                  ].map((o, i) => (
+                    <div key={i} className="bg-white p-4 rounded-xl border border-[#E7EBF2] flex justify-between items-start">
+                      <div>
+                        <p className="text-sm font-bold text-[#171A21]">{o.name}</p>
+                        <p className="text-xs text-[#667085] mt-0.5">{o.action}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-black text-[#16A34A] tabular-nums">+{o.save}</p>
+                        <p className="text-[9px] text-[#98A2B3] font-bold uppercase mt-0.5">Saved</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-[#98A2B3] uppercase tracking-wider">Plan better next year</h4>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { label: 'Set March reminder', action: () => showSuccessToast("March reminder set successfully") },
+                    { label: 'Track LTCG threshold live', action: () => {} },
+                    { label: 'Download tax-ready P&L', action: () => {} },
+                  ].map((c, i) => (
+                    <button key={i} onClick={c.action} className="px-3 py-2 bg-[#F5F7FB] border border-[#E7EBF2] rounded-full text-xs font-bold text-[#171A21]">
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border border-[#E7EBF2] rounded-xl overflow-hidden">
+                <details className="group">
+                  <summary className="flex justify-between items-center p-4 cursor-pointer list-none">
+                    <span className="text-sm font-bold text-[#171A21]">How tax harvesting works</span>
+                    <ChevronDown size={18} className="text-[#98A2B3] group-open:rotate-180 transition-transform" />
+                  </summary>
+                  <div className="px-4 pb-4 text-sm text-[#667085] leading-relaxed">
+                    Gains on long-held equity investments can be tax-optimized. The annual exemption limit matters. A reminder at the right time can reduce avoidable tax without changing your overall long-term plan.
+                  </div>
+                </details>
               </div>
             </div>
+          </BottomSheet>
 
-            <div className="border border-[#E7EBF2] rounded-xl overflow-hidden">
-              <details className="group">
-                <summary className="flex justify-between items-center p-4 cursor-pointer list-none">
-                  <span className="text-sm font-bold text-[#171A21]">How tax harvesting works</span>
-                  <ChevronDown size={18} className="text-[#98A2B3] group-open:rotate-180 transition-transform" />
-                </summary>
-                <div className="px-4 pb-4 text-sm text-[#667085] leading-relaxed">
-                  Gains on long-held equity investments can be tax-optimized. The annual exemption limit matters. A reminder at the right time can reduce avoidable tax without changing your overall long-term plan.
-                </div>
-              </details>
-            </div>
-          </div>
-        </BottomSheet>
+          <BottomSheet 
+            isOpen={isAskSheetOpen} 
+            onClose={() => setIsAskSheetOpen(false)} 
+            title="Ask 5paisa Guide"
+            subtext={
+              activeTab === 'Home' ? "Quick help for your home and portfolio alerts." :
+              activeTab === 'Portfolio' ? "Questions about your holdings, score, and overlap." :
+              activeTab === 'Markets' ? "Questions about what is moving in markets." :
+              activeTab === 'Orders' ? "Questions about orders and recent activity." :
+              "Help with account and support sections."
+            }
+          >
+            {renderAskSheetContent()}
+          </BottomSheet>
 
-        {/* Ask 5paisa Guide Sheet */}
-        <BottomSheet 
-          isOpen={isAskSheetOpen} 
-          onClose={() => setIsAskSheetOpen(false)} 
-          title="Ask 5paisa Guide"
-          subtext={
-            activeTab === 'Home' ? "Quick help for your home and portfolio alerts." :
-            activeTab === 'Portfolio' ? "Questions about your holdings, score, and overlap." :
-            activeTab === 'Markets' ? "Questions about what is moving in markets." :
-            activeTab === 'Orders' ? "Questions about orders and recent activity." :
-            "Help with account and support sections."
-          }
-        >
-          {renderAskSheetContent()}
-        </BottomSheet>
-
-        {/* Tour and Toast */}
-        {showTour && (
-          <TourOverlay 
-            step={tourStep} 
-            onNext={handleTourNext} 
-            onSkip={() => setShowTour(false)} 
-            activeTab={activeTab}
+          {/* Toast */}
+          <Toast 
+            message={toast.message} 
+            isVisible={toast.visible} 
+            onHide={() => setToast({ ...toast, visible: false })} 
           />
-        )}
-        
-        <Toast 
-          message={toast.message} 
-          isVisible={toast.visible} 
-          onHide={() => setToast({ ...toast, visible: false })} 
-        />
-
+        </div>
       </div>
     </div>
   );
