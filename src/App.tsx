@@ -42,6 +42,59 @@ const MARKET_DATA = [
   { name: 'TCS', value: '3,412', change: '+0.4%', up: true },
 ];
 
+const TRANSLATIONS = {
+  EN: {
+    portfolioHealth: "Portfolio Health",
+    scoreIs: "Your score is 78/100",
+    healthDesc: "Your portfolio is performing well, but high mutual fund overlap is reducing your diversification benefit.",
+    checkHealth: "Check Health Report",
+    taxAlert: "Tax Harvest Alert",
+    taxDesc: "You have ₹15,500 in potential tax savings available before March 31.",
+    seeWhatToFix: "See what to fix",
+    guidedTour: "Tour",
+    current5paisa: "Current 5paisa",
+    embeddedAI: "Embedded AI",
+    new: "New",
+    chooseLanguage: "Choose language",
+    langSubtext: "English and Hindi are available now. More languages are coming soon.",
+    totalPortfolioValue: "Total Portfolio Value",
+    invested: "Invested",
+    returns: "Returns",
+    askAnything: "Ask me anything",
+    tapPrompt: "Tap a prompt above to get started",
+    home: "Home",
+    portfolio: "Portfolio",
+    markets: "Markets",
+    orders: "Orders",
+    more: "More",
+  },
+  HI: {
+    portfolioHealth: "पोर्टफोलियो की स्थिति",
+    scoreIs: "आपका स्कोर 78/100 है",
+    healthDesc: "आपका पोर्टफोलियो अच्छा प्रदर्शन कर रहा है, लेकिन म्यूचुअल फंड ओवरलैप आपके विविवधीकरण लाभ को कम कर रहा है।",
+    checkHealth: "रिपोर्ट देखें",
+    taxAlert: "टैक्स बचत अलर्ट",
+    taxDesc: "आपके पास 31 मार्च से पहले ₹15,500 की संभावित टैक्स बचत उपलब्ध है।",
+    seeWhatToFix: "क्या सुधारना है देखें",
+    guidedTour: "टूर",
+    current5paisa: "5paisa",
+    embeddedAI: "एम्बेडेड AI",
+    new: "नया",
+    chooseLanguage: "भाषा चुनें",
+    langSubtext: "अंग्रेजी और हिंदी अभी उपलब्ध हैं। और भाषाएं जल्द ही आ रही हैं।",
+    totalPortfolioValue: "कुल पोर्टफोलियो वैल्यू",
+    invested: "निवेश किया",
+    returns: "रिटर्न",
+    askAnything: "मुझसे कुछ भी पूछें",
+    tapPrompt: "शुरू करने के लिए ऊपर दिए गए प्रॉम्प्ट पर टैप करें",
+    home: "होम",
+    portfolio: "पोर्टफोलियो",
+    markets: "मार्केट",
+    orders: "ऑर्डर",
+    more: "अधिक",
+  }
+};
+
 const WATCHLIST = [
   { name: 'HDFC Bank', exchange: 'NSE', price: '1,624.30', change: '-1.12%', up: false },
   { name: 'Reliance Industries', exchange: 'NSE', price: '2,847.15', change: '+0.84%', up: true },
@@ -357,6 +410,7 @@ const TourOverlay = ({ step, onNext, onSkip, activeTab }: { step: number, onNext
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('Home');
   const [mode, setMode] = useState<Mode>('AI');
+  const [language, setLanguage] = useState<'EN' | 'HI'>('EN');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showTour, setShowTour] = useState(true);
   const [tourStep, setTourStep] = useState(0);
@@ -369,6 +423,7 @@ export default function App() {
   const [isTaxSheetOpen, setIsTaxSheetOpen] = useState(false);
   const [isAskSheetOpen, setIsAskSheetOpen] = useState(false);
   const [isConfirmSheetOpen, setIsConfirmSheetOpen] = useState(false);
+  const [isLanguageSheetOpen, setIsLanguageSheetOpen] = useState(false);
   const [selectedPrompt, setSelectedPrompt] = useState<string | null>(null);
 
   useEffect(() => {
@@ -480,9 +535,13 @@ export default function App() {
         />
       </div>
       <div className="flex items-center gap-3">
-        <div className="bg-[#F5F7FB] px-2.5 py-1 rounded-full border border-[#E7EBF2]">
-          <span className="text-[10px] font-bold text-[#171A21]">EN</span>
-        </div>
+        <button 
+          onClick={() => setIsLanguageSheetOpen(true)}
+          className="h-10 px-3 bg-white rounded-xl border border-[#E7EBF2] flex items-center gap-1.5 shadow-sm active:scale-95 transition-transform"
+        >
+          <span className="text-[12px] font-bold text-[#171A21]">{language}</span>
+          <ChevronDown size={14} className="text-[#667085]" />
+        </button>
         <div className="relative">
           <Bell size={20} className="text-[#667085]" />
           <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#E31C3D] rounded-full border border-white" />
@@ -511,47 +570,42 @@ export default function App() {
   );
 
   const renderModeToggle = () => (
-    <div className="sticky top-[52px] z-40 bg-[#F5F7FB] px-[14px] py-3 border-b border-[#E7EBF2]">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex bg-white p-1 rounded-xl border border-[#E7EBF2] w-full max-w-[280px]">
-          <button 
-            onClick={() => setMode('Current')}
-            className={`flex-1 py-2 text-[11px] font-bold rounded-lg transition-all ${mode === 'Current' ? 'bg-[#171A21] text-white shadow-sm' : 'text-[#667085]'}`}
-          >
-            Current 5paisa
-          </button>
-          <button 
-            onClick={() => setMode('AI')}
-            className={`flex-1 py-2 text-[11px] font-bold rounded-lg transition-all ${mode === 'AI' ? 'bg-[#E31C3D] text-white shadow-sm' : 'text-[#667085]'}`}
-          >
-            With embedded AI
-          </button>
-        </div>
+    <div className="bg-white px-4 pt-3 pb-2 border-b border-[#E7EBF2] flex items-center gap-[10px]">
+      <div className="flex bg-[#F1F4F9] p-1 rounded-[14px] flex-1 h-[44px]">
         <button 
-          onClick={() => { setMode('AI'); setTourStep(0); setShowTour(true); }}
-          className="text-[11px] font-bold text-[#E31C3D] hover:underline"
+          onClick={() => setMode('Current')}
+          className={`flex-1 flex items-center justify-center text-[12px] font-bold rounded-[10px] transition-all ${mode === 'Current' ? 'bg-white text-[#171A21] shadow-sm' : 'text-[#475467]'}`}
         >
-          See guided tour
+          {TRANSLATIONS[language].current5paisa}
+        </button>
+        <button 
+          onClick={() => setMode('AI')}
+          className={`flex-1 flex items-center justify-center gap-1.5 text-[12px] font-bold rounded-[10px] transition-all ${mode === 'AI' ? 'bg-[#E31C3D] text-white shadow-sm' : 'text-[#475467]'}`}
+        >
+          {TRANSLATIONS[language].embeddedAI}
+          <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase ${mode === 'AI' ? 'bg-white text-[#E31C3D]' : 'bg-[#E31C3D] text-white'}`}>
+            {TRANSLATIONS[language].new}
+          </span>
         </button>
       </div>
-      {mode === 'AI' && (
-        <div className="bg-[#E31C3D]/5 border border-[#E31C3D]/10 rounded-lg px-3 py-2 flex items-center gap-2">
-          <Sparkles size={12} className="text-[#E31C3D]" />
-          <span className="text-[10px] font-bold text-[#E31C3D] uppercase tracking-wider">Portfolio Intelligence Active</span>
-        </div>
-      )}
+      <button 
+        onClick={() => { setMode('AI'); setTourStep(0); setShowTour(true); }}
+        className="h-[44px] px-3 bg-transparent text-[#E31C3D] text-[12px] font-bold active:scale-95 transition-transform"
+      >
+        {TRANSLATIONS[language].guidedTour}
+      </button>
     </div>
   );
 
   const renderHome = () => (
-    <div className="p-[14px] space-y-3 pt-2">
+    <div className="p-[14px] space-y-3 pt-1">
       {/* Hero Portfolio Card */}
       <div className="bg-[#171A21] p-4 rounded-[18px] text-white shadow-lg relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl" />
         <div className="relative z-10">
           <div className="flex justify-between items-start mb-4">
             <div>
-              <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest mb-1">Total Portfolio Value</p>
+              <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest mb-1">{TRANSLATIONS[language].totalPortfolioValue}</p>
               <h2 className="text-2xl font-black tabular-nums">₹12,48,200</h2>
             </div>
             <div className="bg-white/10 px-2 py-1 rounded-md flex items-center gap-1">
@@ -561,11 +615,11 @@ export default function App() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest mb-1">Invested</p>
+              <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest mb-1">{TRANSLATIONS[language].invested}</p>
               <p className="text-sm font-bold tabular-nums">₹10,24,000</p>
             </div>
             <div>
-              <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest mb-1">Returns</p>
+              <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest mb-1">{TRANSLATIONS[language].returns}</p>
               <p className="text-sm font-bold text-[#16A34A] tabular-nums">+21.8%</p>
             </div>
           </div>
@@ -580,22 +634,22 @@ export default function App() {
               <div>
                 <div className="flex items-center gap-1.5 mb-1">
                   <Heart size={14} className="text-[#E31C3D]" fill="#E31C3D" />
-                  <span className="text-[10px] font-bold text-[#E31C3D] uppercase tracking-wider">Portfolio Health</span>
+                  <span className="text-[10px] font-bold text-[#E31C3D] uppercase tracking-wider">{TRANSLATIONS[language].portfolioHealth}</span>
                 </div>
-                <h3 className="text-[14px] font-bold text-[#171A21]">Your score is 78/100</h3>
+                <h3 className="text-[14px] font-bold text-[#171A21]">{TRANSLATIONS[language].scoreIs}</h3>
               </div>
               <div className="w-10 h-10 rounded-full border-4 border-[#EEF9F1] border-t-[#16A34A] flex items-center justify-center">
                 <span className="text-[11px] font-black text-[#171A21]">78</span>
               </div>
             </div>
             <p className="text-[12px] text-[#667085] leading-relaxed mb-4">
-              Your portfolio is performing well, but high mutual fund overlap is reducing your diversification benefit.
+              {TRANSLATIONS[language].healthDesc}
             </p>
             <button 
               onClick={() => setIsHealthSheetOpen(true)}
               className="w-full py-2.5 bg-[#F5F7FB] border border-[#E7EBF2] rounded-xl text-[12px] font-bold text-[#171A21] flex items-center justify-center gap-2"
             >
-              Check Health Report <ChevronRight size={14} />
+              {TRANSLATIONS[language].checkHealth} <ChevronRight size={14} />
             </button>
           </div>
 
@@ -605,16 +659,20 @@ export default function App() {
               <div className="w-7 h-7 bg-amber-500 rounded-lg flex items-center justify-center">
                 <AlertCircle size={16} className="text-white" />
               </div>
-              <h3 className="text-[14px] font-bold text-[#171A21]">Tax Harvest Alert</h3>
+              <h3 className="text-[14px] font-bold text-[#171A21]">{TRANSLATIONS[language].taxAlert}</h3>
             </div>
             <p className="text-[12px] text-[#667085] leading-relaxed mb-4">
-              You can save up to <span className="font-bold text-[#171A21]">₹15,500</span> in taxes by booking partial gains before March 31.
+              {language === 'EN' ? (
+                <>You can save up to <span className="font-bold text-[#171A21]">₹15,500</span> in taxes by booking partial gains before March 31.</>
+              ) : (
+                <>आप 31 मार्च से पहले आंशिक लाभ बुक करके टैक्स में <span className="font-bold text-[#171A21]">₹15,500</span> तक बचा सकते हैं।</>
+              )}
             </p>
             <button 
               onClick={() => setIsTaxSheetOpen(true)}
               className="w-full py-2.5 bg-amber-500 text-white rounded-xl text-[12px] font-bold flex items-center justify-center gap-2 shadow-md shadow-amber-500/20"
             >
-              Review Opportunities <ChevronRight size={14} />
+              {TRANSLATIONS[language].seeWhatToFix} <ChevronRight size={14} />
             </button>
           </div>
         </>
@@ -658,7 +716,7 @@ export default function App() {
   const renderPortfolio = () => (
     <div className="p-[14px] space-y-3 pt-2">
       <div className="flex items-center justify-between mb-1">
-        <h2 className="text-[20px] font-bold text-[#171A21]">Portfolio</h2>
+        <h2 className="text-[20px] font-bold text-[#171A21]">{TRANSLATIONS[language].portfolio}</h2>
         <div className="flex gap-2">
           <button className="p-2 bg-white border border-[#E7EBF2] rounded-lg text-[#667085]">
             <Filter size={16} />
@@ -776,6 +834,60 @@ export default function App() {
     </div>
   );
 
+  const renderLanguageSheetContent = () => {
+    const languages = [
+      { code: 'EN', name: 'English', native: 'English', available: true },
+      { code: 'HI', name: 'Hindi', native: 'हिंदी', available: true },
+      { code: 'MA', name: 'Marathi', native: 'मराठी', available: false },
+      { code: 'GJ', name: 'Gujarati', native: 'गुजराती', available: false },
+      { code: 'TN', name: 'Tamil', native: 'தமிழ்', available: false },
+      { code: 'TL', name: 'Telugu', native: 'తెలుగు', available: false },
+      { code: 'ML', name: 'Malayalam', native: 'മലയാളം', available: false },
+    ];
+
+    return (
+      <div className="space-y-2">
+        {languages.map((lang) => (
+          <button
+            key={lang.code}
+            disabled={!lang.available}
+            onClick={() => {
+              if (lang.available) {
+                setLanguage(lang.code as 'EN' | 'HI');
+                setIsLanguageSheetOpen(false);
+                showSuccessToast(`Language changed to ${lang.name}`);
+              }
+            }}
+            className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${
+              !lang.available 
+                ? 'opacity-40 bg-gray-50 border-gray-100' 
+                : language === lang.code 
+                  ? 'bg-[#E31C3D]/5 border-[#E31C3D] shadow-sm' 
+                  : 'bg-white border-[#E7EBF2] active:bg-gray-50'
+            }`}
+          >
+            <div className="flex flex-col items-start">
+              <span className={`text-sm font-bold ${language === lang.code ? 'text-[#E31C3D]' : 'text-[#171A21]'}`}>
+                {lang.code} — {lang.native}
+              </span>
+              <span className="text-[11px] text-[#667085]">{lang.name}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {!lang.available && (
+                <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-[9px] font-bold uppercase rounded">Upcoming</span>
+              )}
+              {language === lang.code && (
+                <div className="w-5 h-5 bg-[#E31C3D] rounded-full flex items-center justify-center">
+                  <CheckCircle2 size={12} className="text-white" />
+                </div>
+              )}
+            </div>
+          </button>
+        ))}
+      </div>
+    );
+  };
+
   const renderHealthSheetContent = () => (
     <div className="space-y-6">
       <div className="bg-[#FAFBFE] p-6 rounded-[24px] border border-[#E7EBF2] flex flex-col items-center text-center">
@@ -786,15 +898,17 @@ export default function App() {
           </svg>
           <span className="absolute text-3xl font-black text-[#171A21]">78</span>
         </div>
-        <p className="text-sm font-bold text-[#171A21] leading-relaxed px-4">Your portfolio is doing well on returns, but diversification needs work.</p>
+        <p className="text-sm font-bold text-[#171A21] leading-relaxed px-4">
+          {language === 'EN' ? "Your portfolio is doing well on returns, but diversification needs work." : "रिटर्न के मामले में आपका पोर्टफोलियो अच्छा कर रहा है, लेकिन विविधीकरण पर काम करने की जरूरत है।"}
+        </p>
       </div>
 
       <div className="space-y-3">
         {[
-          { label: 'Diversification', score: '48/100', desc: 'Several funds repeat the same top holdings.' },
-          { label: 'Returns vs Benchmark', score: '71/100', desc: 'Current performance is ahead of your benchmark.' },
-          { label: 'Tax Efficiency', score: '54/100', desc: 'Some LTCG opportunities were missed this year.' },
-          { label: 'Risk Balance', score: '63/100', desc: 'Overall risk is manageable, but concentration is rising.' },
+          { label: language === 'EN' ? 'Diversification' : 'विविधीकरण', score: '48/100', desc: language === 'EN' ? 'Several funds repeat the same top holdings.' : 'कई फंड एक ही टॉप होल्डिंग्स को दोहराते हैं।' },
+          { label: language === 'EN' ? 'Returns vs Benchmark' : 'रिटर्न बनाम बेंचमार्क', score: '71/100', desc: language === 'EN' ? 'Current performance is ahead of your benchmark.' : 'वर्तमान प्रदर्शन आपके बेंचमार्क से आगे है।' },
+          { label: language === 'EN' ? 'Tax Efficiency' : 'टैक्स दक्षता', score: '54/100', desc: language === 'EN' ? 'Some LTCG opportunities were missed this year.' : 'इस साल कुछ LTCG अवसर चूक गए।' },
+          { label: language === 'EN' ? 'Risk Balance' : 'जोखिम संतुलन', score: '63/100', desc: language === 'EN' ? 'Overall risk is manageable, but concentration is rising.' : 'कुल जोखिम प्रबंधनीय है, लेकिन एकाग्रता बढ़ रही है।' },
         ].map((m, i) => (
           <div key={i} className="flex justify-between items-start gap-4 p-1">
             <div className="flex-1">
@@ -809,14 +923,16 @@ export default function App() {
       </div>
 
       <div className="space-y-2">
-        <h4 className="text-xs font-bold text-[#98A2B3] uppercase tracking-wider">What’s pulling your score down</h4>
-        <p className="text-sm text-[#171A21] leading-relaxed">High fund overlap is the main issue. You also came very close to the annual LTCG exemption limit without using it fully.</p>
+        <h4 className="text-xs font-bold text-[#98A2B3] uppercase tracking-wider">{language === 'EN' ? "What’s pulling your score down" : "आपका स्कोर नीचे क्या खींच रहा है"}</h4>
+        <p className="text-sm text-[#171A21] leading-relaxed">
+          {language === 'EN' ? "High fund overlap is the main issue. You also came very close to the annual LTCG exemption limit without using it fully." : "फंड ओवरलैप मुख्य समस्या है। आप वार्षिक LTCG छूट सीमा के बहुत करीब भी आए लेकिन इसका पूरा उपयोग नहीं किया।"}
+        </p>
       </div>
 
       <div className="space-y-3">
-        <h4 className="text-xs font-bold text-[#98A2B3] uppercase tracking-wider">Top 3 actions to improve</h4>
+        <h4 className="text-xs font-bold text-[#98A2B3] uppercase tracking-wider">{language === 'EN' ? "Top 3 actions to improve" : "सुधार के लिए टॉप 3 कदम"}</h4>
         <div className="space-y-2">
-          {['Reduce one overlapping fund.', 'Set a year-end tax reminder.', 'Review SIP allocation once this month.'].map((a, i) => (
+          {(language === 'EN' ? ['Reduce one overlapping fund.', 'Set a year-end tax reminder.', 'Review SIP allocation once this month.'] : ['एक ओवरलैपिंग फंड कम करें।', 'साल के अंत के लिए टैक्स रिमाइंडर सेट करें।', 'इस महीने एक बार SIP आवंटन की समीक्षा करें।']).map((a, i) => (
             <div key={i} className="flex gap-3 items-start">
               <span className="w-5 h-5 bg-[#EEF4FF] text-[#2563EB] rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0 mt-0.5">{i+1}</span>
               <p className="text-sm text-[#171A21] font-medium">{a}</p>
@@ -830,19 +946,19 @@ export default function App() {
           onClick={() => { setIsHealthSheetOpen(false); setIsOverlapSheetOpen(true); }}
           className="w-full py-3.5 bg-[#171A21] text-white rounded-xl font-bold"
         >
-          Fix overlap
+          {language === 'EN' ? "Fix overlap" : "ओवरलैप ठीक करें"}
         </button>
         <button 
           onClick={() => { setIsHealthSheetOpen(false); setIsTaxSheetOpen(true); }}
           className="w-full py-3.5 bg-white border border-[#E7EBF2] text-[#171A21] rounded-xl font-bold"
         >
-          View tax opportunities
+          {language === 'EN' ? "View tax opportunities" : "टैक्स के अवसर देखें"}
         </button>
         <button 
           onClick={() => setIsHealthSheetOpen(false)}
           className="w-full py-3.5 bg-white text-[#667085] rounded-xl font-bold text-sm"
         >
-          Review portfolio
+          {language === 'EN' ? "Review portfolio" : "पोर्टफोलियो की समीक्षा करें"}
         </button>
       </div>
     </div>
@@ -850,11 +966,21 @@ export default function App() {
 
   const renderAskSheetContent = () => {
     const promptsByTab: Record<Tab, string[]> = {
-      Home: ["What is hurting my portfolio health?", "Why is overlap high?", "Should I review tax opportunities now?"],
-      Portfolio: ["What does 62/100 mean?", "Which fund overlaps the most?", "How can I improve diversification?"],
-      Markets: ["Why is NIFTY up today?", "Does this affect my portfolio?", "What should I ignore today?"],
-      Orders: ["What was my last completed order?", "Do I have an active SIP?", "What should I check after buying?"],
-      More: ["Where can I see reports?", "How do I add funds?", "Where is tax-ready P&L?"]
+      Home: language === 'EN' 
+        ? ["What is hurting my portfolio health?", "Why is overlap high?", "Should I review tax opportunities now?"]
+        : ["मेरे पोर्टफोलियो को क्या नुकसान पहुंचा रहा है?", "ओवरलैप अधिक क्यों है?", "क्या मुझे अभी टैक्स के अवसर देखने चाहिए?"],
+      Portfolio: language === 'EN'
+        ? ["What does 62/100 mean?", "Which fund overlaps the most?", "How can I improve diversification?"]
+        : ["62/100 का क्या मतलब है?", "कौन सा फंड सबसे ज्यादा ओवरलैप करता है?", "मैं विविधीकरण कैसे सुधार सकता हूं?"],
+      Markets: language === 'EN'
+        ? ["Why is NIFTY up today?", "Does this affect my portfolio?", "What should I ignore today?"]
+        : ["आज निफ्टी ऊपर क्यों है?", "क्या यह मेरे पोर्टफोलियो को प्रभावित करता है?", "मुझे आज क्या अनदेखा करना चाहिए?"],
+      Orders: language === 'EN'
+        ? ["What was my last completed order?", "Do I have an active SIP?", "What should I check after buying?"]
+        : ["मेरा पिछला पूरा हुआ ऑर्डर क्या था?", "क्या मेरा कोई सक्रिय SIP है?", "खरीदने के बाद मुझे क्या चेक करना चाहिए?"],
+      More: language === 'EN'
+        ? ["Where can I see reports?", "How do I add funds?", "Where is tax-ready P&L?"]
+        : ["मैं रिपोर्ट कहां देख सकता हूं?", "मैं फंड कैसे जोड़ूं?", "टैक्स-रेडी P&L कहां है?"]
     };
 
     const answers: Record<string, string> = {
@@ -867,7 +993,18 @@ export default function App() {
       "Why is NIFTY up today?": "Positive global cues and strong buying in heavyweights like Reliance and TCS are driving the momentum today.",
       "Does this affect my portfolio?": "Yes, your portfolio is up 0.6% today, largely driven by your HDFC and Reliance exposure which are key NIFTY components.",
       "What was my last completed order?": "Your last order was a Buy of NIFTYBEES which was completed successfully earlier today.",
-      "Where can I see reports?": "You can find all your tax, P&L, and transaction reports under the 'Reports' section in the 'More' tab."
+      "Where can I see reports?": "You can find all your tax, P&L, and transaction reports under the 'Reports' section in the 'More' tab.",
+      // Hindi Answers
+      "मेरे पोर्टफोलियो को क्या नुकसान पहुंचा रहा है?": "सबसे बड़ी समस्या आपके इक्विटी म्यूचुअल फंडों में ओवरलैप है। रिटर्न अच्छे हैं, लेकिन विविधीकरण उम्मीद से कमजोर है।",
+      "ओवरलैप अधिक क्यों है?": "आपके कई फंडों में रिलायंस, एचडीएफसी बैंक, इंफोसिस और आईसीआईसीआई बैंक जैसे समान टॉप स्टॉक हैं।",
+      "क्या मुझे अभी टैक्स के अवसर देखने चाहिए?": "आप वार्षिक LTCG छूट सीमा के बहुत करीब थे। एक त्वरित समीक्षा आपको अगले साल अवसर चूकने से बचने में मदद कर सकती है।",
+      "62/100 का क्या मतलब है?": "यह एक संतुलित स्कोर है। आप रिटर्न (71/100) पर बहुत अच्छा कर रहे हैं, लेकिन विविधीकरण (48/100) समग्र औसत को नीचे खींच रहा है।",
+      "कौन सा फंड सबसे ज्यादा ओवरलैप करता है?": "UTI फ्लेक्सी कैप फंड का आपके अन्य होल्डिंग्स के साथ 78% ओवरलैप है, जो आपके पोर्टफोलियो में पहले से मौजूद 17 स्टॉक को दोहराता है।",
+      "मैं विविधीकरण कैसे सुधार सकता हूं?": "ओवरलैपिंग फंडों को समेकित करने पर विचार करें। UTI फ्लेक्सी कैप से SIP को किसी अलग श्रेणी के फंड में रीडायरेक्ट करने से मदद मिलेगी।",
+      "आज निफ्टी ऊपर क्यों है?": "सकारात्मक वैश्विक संकेतों और रिलायंस और टीसीएस जैसे हैवीवेट में मजबूत खरीदारी आज तेजी को बढ़ावा दे रही है।",
+      "क्या यह मेरे पोर्टफोलियो को प्रभावित करता है?": "हाँ, आपका पोर्टफोलियो आज 0.6% ऊपर है, जो मुख्य रूप से आपके एचडीएफसी और रिलायंस एक्सपोजर द्वारा संचालित है जो प्रमुख निफ्टी घटक हैं।",
+      "मेरा पिछला पूरा हुआ ऑर्डर क्या था?": "आपका पिछला ऑर्डर NIFTYBEES की खरीद थी जो आज पहले सफलतापूर्वक पूरा हो गया था।",
+      "मैं रिपोर्ट कहां देख सकता हूं?": "आप 'More' टैब में 'Reports' सेक्शन के तहत अपने सभी टैक्स, P&L और ट्रांजेक्शन रिपोर्ट पा सकते हैं।"
     };
 
     return (
@@ -953,11 +1090,11 @@ export default function App() {
         <div className="bottom-nav-area">
           <nav className="h-[64px] bg-white border-t border-[#E7EBF2] flex items-center justify-around px-2 relative">
             {[
-              { id: 'Home', icon: HomeIcon, label: 'Home' },
-              { id: 'Portfolio', icon: Briefcase, label: 'Portfolio' },
-              { id: 'Markets', icon: TrendingUp, label: 'Markets' },
-              { id: 'Orders', icon: ClipboardList, label: 'Orders' },
-              { id: 'More', icon: MoreHorizontal, label: 'More' },
+              { id: 'Home', icon: HomeIcon, label: TRANSLATIONS[language].home },
+              { id: 'Portfolio', icon: Briefcase, label: TRANSLATIONS[language].portfolio },
+              { id: 'Markets', icon: TrendingUp, label: TRANSLATIONS[language].markets },
+              { id: 'Orders', icon: ClipboardList, label: TRANSLATIONS[language].orders },
+              { id: 'More', icon: MoreHorizontal, label: TRANSLATIONS[language].more },
             ].map((tab) => (
               <button 
                 key={tab.id}
@@ -1196,6 +1333,15 @@ export default function App() {
             }
           >
             {renderAskSheetContent()}
+          </BottomSheet>
+
+          <BottomSheet
+            isOpen={isLanguageSheetOpen}
+            onClose={() => setIsLanguageSheetOpen(false)}
+            title={TRANSLATIONS[language].chooseLanguage}
+            subtext={TRANSLATIONS[language].langSubtext}
+          >
+            {renderLanguageSheetContent()}
           </BottomSheet>
 
           {/* Toast */}
