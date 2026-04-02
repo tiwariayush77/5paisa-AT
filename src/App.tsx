@@ -31,6 +31,12 @@ import { motion, AnimatePresence } from 'motion/react';
 type Tab = 'Home' | 'Portfolio' | 'Markets' | 'Orders' | 'More';
 type Mode = 'Current' | 'AI';
 
+interface ExplainerData {
+  name: string;
+  context: string;
+  tag?: 'High overlap' | 'Tax review relevant' | 'Benchmark anchor' | 'Core holding';
+}
+
 // --- Mock Data ---
 const MARKET_DATA = [
   { name: 'SENSEX', value: '81,240', change: '+0.4%', up: true },
@@ -102,10 +108,76 @@ const WATCHLIST = [
 ];
 
 const HOLDINGS = [
-  { name: 'UTI Flexi Cap Fund', type: 'SIP ₹1,000 · MF', value: '₹42,800', gain: '+8.2%', up: true },
-  { name: 'HDFC Flexi Cap Fund', type: 'SIP ₹500 · MF', value: '₹28,400', gain: '+6.4%', up: true },
-  { name: 'Axis Bluechip Fund', type: 'SIP ₹500 · MF', value: '₹18,700', gain: '+5.9%', up: true },
+  { name: 'UTI Flexi Cap Fund', type: 'SIP ₹1,000 · MF', value: '₹42,800', gain: '+8.2%', up: true, id: 'uti-flexi' },
+  { name: 'HDFC Flexi Cap Fund', type: 'SIP ₹500 · MF', value: '₹28,400', gain: '+6.4%', up: true, id: 'hdfc-flexi' },
+  { name: 'Axis Bluechip Fund', type: 'SIP ₹500 · MF', value: '₹18,700', gain: '+5.9%', up: true, id: 'axis-bluechip' },
 ];
+
+const EXPLAINERS: Record<string, ExplainerData> = {
+  'Reliance Industries': {
+    name: 'Reliance Industries',
+    context: 'Oil-to-chemicals margins and retail updates are the main near-term watchpoints.',
+    tag: 'Core holding'
+  },
+  'HDFC Bank': {
+    name: 'HDFC Bank',
+    context: 'Rate outlook and deposit growth usually drive near-term sentiment here.',
+    tag: 'Benchmark anchor'
+  },
+  'Infosys': {
+    name: 'Infosys',
+    context: 'Deal wins, guidance, and US demand cues tend to move this stock.',
+    tag: 'Core holding'
+  },
+  'Tata Motors': {
+    name: 'Tata Motors',
+    context: 'JLR updates and EV demand commentary are the biggest short-term triggers.',
+  },
+  'NIFTY 50': {
+    name: 'NIFTY 50',
+    context: 'Broad market moves here reflect large-cap sentiment more than one company.',
+    tag: 'Benchmark anchor'
+  },
+  'UTI Flexi Cap Fund': {
+    name: 'UTI Flexi Cap Fund',
+    context: 'This fund overlaps heavily with your other flexi-cap holdings.',
+    tag: 'High overlap'
+  },
+  'HDFC Flexi Cap Fund': {
+    name: 'HDFC Flexi Cap Fund',
+    context: 'A large part of this portfolio repeats names you already own elsewhere.',
+    tag: 'High overlap'
+  },
+  'Axis Bluechip Fund': {
+    name: 'Axis Bluechip Fund',
+    context: 'This adds stability, but some large-cap exposure is already duplicated.',
+    tag: 'Core holding'
+  },
+  'NIFTYBEES': {
+    name: 'NIFTYBEES',
+    context: 'This ETF tracks the top Indian companies, so market-wide moves matter most.',
+    tag: 'Benchmark anchor'
+  }
+};
+
+const OPTIONS_CLARITY_DATA = {
+  view: 'Mildly bullish',
+  risk: 'Defined',
+  maxLoss: '₹1,850',
+  strategy: 'Bull Call Spread',
+  why: 'This limits downside compared with buying a naked call.',
+  terms: [
+    'You benefit if NIFTY moves up gradually.',
+    'Your profit is capped.',
+    'Your loss is also capped.'
+  ],
+  watchouts: [
+    { label: 'OI trend', desc: 'Open interest shows where traders are active.' },
+    { label: 'Expiry distance', desc: 'Time value decays faster near expiry.' },
+    { label: 'Max loss', desc: 'Maximum loss is fixed if held to expiry.' },
+    { label: 'Break-even', desc: 'This is the level needed before the trade starts helping.' }
+  ]
+};
 
 const OVERLAP_STOCKS = [
   { name: 'Reliance Industries', count: '6/7 funds', percentage: 85 },
@@ -206,8 +278,10 @@ const TourOverlay = ({ step, onNext, onSkip, activeTab }: { step: number, onNext
       if (step === 0) return null;
       const id = step === 1 ? 'tour-health' : 
                  step === 2 ? 'tour-tax' : 
-                 step === 3 ? 'ask-button' : 
-                 step === 4 ? 'tour-overlap' : '';
+                 step === 3 ? 'tour-explainer' : 
+                 step === 4 ? 'tour-options' : 
+                 step === 5 ? 'ask-button' : 
+                 step === 6 ? 'tour-overlap' : '';
       return document.getElementById(id);
     };
 
@@ -298,16 +372,34 @@ const TourOverlay = ({ step, onNext, onSkip, activeTab }: { step: number, onNext
       button: "Next →"
     },
     {
-      title: "Contextual help, without changing the app",
-      body: "This opens relevant prompts based on the screen the user is on. Guidance stays close to the decision instead of creating a separate AI journey.",
-      helper: "Why it matters: support should appear where confusion happens.",
+      title: "Quick context, right where users need it",
+      body: "These info buttons give a one-line explanation on a stock or fund without forcing users into a full research flow.",
+      helper: "Why it matters: small questions should get small answers.",
       button: "Next →"
     },
     {
-      title: "Here is the clearest fix in the portfolio",
-      body: "This card shows when multiple funds keep repeating the same stocks. It helps users see that more funds do not always mean better diversification.",
-      helper: "Why it matters: overlap is one of the easiest portfolio problems to act on.",
-      button: "Open overlap →"
+      title: "Options, explained without the jargon",
+      body: "This turns option-chain complexity into a simpler market view, a safer setup, and a clear maximum-loss explanation.",
+      helper: "Why it matters: non-expert users should understand the trade before seeing the chain.",
+      button: "Next →"
+    },
+    {
+      title: "Ask me anything, anytime",
+      body: "This contextual assistant helps users with quick questions about their portfolio, market moves, or even complex trading setups.",
+      helper: "Why it matters: users shouldn't have to leave the screen to get a simple answer.",
+      button: "Next →"
+    },
+    {
+      title: "Fix portfolio overlap in seconds",
+      body: "This card identifies where mutual funds are repeating the same stocks. It helps users reduce double fees and improve true diversification.",
+      helper: "Why it matters: overlap is the most common hidden risk in retail portfolios.",
+      button: "Next →"
+    },
+    {
+      title: "Ready to explore?",
+      body: "Tap the button below to see the full overlap analysis and start optimizing your portfolio.",
+      helper: "",
+      button: "Open Overlap View"
     }
   ];
 
@@ -424,6 +516,9 @@ export default function App() {
   const [isAskSheetOpen, setIsAskSheetOpen] = useState(false);
   const [isConfirmSheetOpen, setIsConfirmSheetOpen] = useState(false);
   const [isLanguageSheetOpen, setIsLanguageSheetOpen] = useState(false);
+  const [isExplainerSheetOpen, setIsExplainerSheetOpen] = useState(false);
+  const [explainerData, setExplainerData] = useState<ExplainerData | null>(null);
+  const [isOptionsClaritySheetOpen, setIsOptionsClaritySheetOpen] = useState(false);
   const [selectedPrompt, setSelectedPrompt] = useState<string | null>(null);
 
   useEffect(() => {
@@ -487,7 +582,19 @@ export default function App() {
     if (tourStep === 0) {
       setActiveTab('Home');
       setTourStep(1);
+    } else if (tourStep === 2) {
+      // After tax alert, go to portfolio for explainer
+      setActiveTab('Portfolio');
+      setTourStep(3);
+    } else if (tourStep === 3) {
+      // After explainer, go to markets for options
+      setActiveTab('Markets');
+      setTourStep(4);
     } else if (tourStep === 4) {
+      // After options, return to home for ask button
+      setActiveTab('Home');
+      setTourStep(5);
+    } else if (tourStep === 6) {
       cleanupTour();
       // Wait a bit for cleanup to settle before opening the next sheet
       setTimeout(() => {
@@ -728,35 +835,56 @@ export default function App() {
       </div>
 
       {mode === 'AI' && (
-        <div id="tour-overlap" className="bg-[#F5F7FB] p-4 rounded-[18px] border border-[#E7EBF2] shadow-sm">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-7 h-7 bg-[#171A21] rounded-lg flex items-center justify-center">
-              <Layers size={16} className="text-white" />
+        <>
+          <div id="tour-overlap" className="bg-[#F5F7FB] p-4 rounded-[18px] border border-[#E7EBF2] shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-7 h-7 bg-[#171A21] rounded-lg flex items-center justify-center">
+                <Layers size={16} className="text-white" />
+              </div>
+              <h3 className="text-[14px] font-bold text-[#171A21]">Portfolio Overlap</h3>
             </div>
-            <h3 className="text-[14px] font-bold text-[#171A21]">Portfolio Overlap</h3>
+            <p className="text-[12px] text-[#667085] leading-relaxed mb-4">
+              You have <span className="font-bold text-[#171A21]">64% overlap</span> between UTI Flexi Cap and HDFC Flexi Cap. You are paying double fees for the same stocks.
+            </p>
+            <button 
+              onClick={() => setIsOverlapSheetOpen(true)}
+              className="w-full py-2.5 bg-[#171A21] text-white rounded-xl text-[12px] font-bold flex items-center justify-center gap-2"
+            >
+              Fix Overlap Issues <ChevronRight size={14} />
+            </button>
           </div>
-          <p className="text-[12px] text-[#667085] leading-relaxed mb-4">
-            You have <span className="font-bold text-[#171A21]">64% overlap</span> between UTI Flexi Cap and HDFC Flexi Cap. You are paying double fees for the same stocks.
-          </p>
-          <button 
-            onClick={() => setIsOverlapSheetOpen(true)}
-            className="w-full py-2.5 bg-[#171A21] text-white rounded-xl text-[12px] font-bold flex items-center justify-center gap-2"
-          >
-            Fix Overlap Issues <ChevronRight size={14} />
-          </button>
-        </div>
+
+          <div className="bg-[#FAFBFE] p-4 rounded-[18px] border border-[#E7EBF2] shadow-sm">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Zap size={12} className="text-[#2563EB]" />
+              <span className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Derivatives risk, simplified</span>
+            </div>
+            <p className="text-xs text-[#667085] leading-relaxed mb-3">
+              One position needs review before expiry. Your downside is capped, but time decay is rising.
+            </p>
+            <button 
+              onClick={() => setIsOptionsClaritySheetOpen(true)}
+              className="text-xs font-bold text-[#2563EB] flex items-center gap-1"
+            >
+              Review options risk <ChevronRight size={14} />
+            </button>
+          </div>
+        </>
       )}
 
       <div className="space-y-3">
         {[
-          { name: 'HDFC Bank', qty: '42', price: '1,452.10', chg: '+1.2%', up: true, val: '60,988' },
-          { name: 'Reliance Industries', qty: '12', price: '2,984.40', chg: '-0.4%', up: false, val: '35,812' },
-          { name: 'Infosys', qty: '25', price: '1,642.00', chg: '+2.1%', up: true, val: '41,050' },
-          { name: 'TCS', qty: '8', price: '4,120.50', chg: '+0.8%', up: true, val: '32,964' },
+          { name: 'UTI Flexi Cap Fund', qty: '42', price: '1,452.10', chg: '+1.2%', up: true, val: '60,988', id: 'tour-explainer' },
+          { name: 'HDFC Bank', qty: '12', price: '2,984.40', chg: '-0.4%', up: false, val: '35,812' },
+          { name: 'Reliance Industries', qty: '25', price: '1,642.00', chg: '+2.1%', up: true, val: '41,050' },
+          { name: 'Infosys', qty: '8', price: '4,120.50', chg: '+0.8%', up: true, val: '32,964' },
         ].map((stock, i) => (
           <div key={i} className="bg-white p-3.5 rounded-[18px] border border-[#E7EBF2] flex justify-between items-center">
             <div>
-              <p className="text-[14px] font-bold text-[#171A21]">{stock.name}</p>
+              <div className="flex items-center">
+                <p className="text-[14px] font-bold text-[#171A21]">{stock.name}</p>
+                {mode === 'AI' && <ExplainerButton name={stock.name} id={stock.id} />}
+              </div>
               <p className="text-[11px] text-[#667085] font-medium mt-0.5">Qty: {stock.qty} • Avg: ₹{stock.price}</p>
             </div>
             <div className="text-right">
@@ -785,6 +913,13 @@ export default function App() {
     "Markets", 
     "The current market-first layout stays intact.",
     <div className="space-y-4">
+      {mode === 'AI' && (
+        <>
+          <MarketContextCard />
+          <OptionsClarityCard />
+        </>
+      )}
+      
       {[
         { name: 'NIFTY 50', val: '24,680', chg: '▲0.3%', desc: 'Broad market benchmark' },
         { name: 'SENSEX', val: '81,240', chg: '▲0.4%', desc: 'Large-cap momentum remains stable' },
@@ -792,7 +927,10 @@ export default function App() {
       ].map((m, i) => (
         <div key={i} className="bg-white p-4 rounded-[18px] border border-[#E7EBF2] shadow-sm">
           <div className="flex justify-between items-center mb-1">
-            <span className="font-bold text-[#171A21]">{m.name}</span>
+            <div className="flex items-center">
+              <span className="font-bold text-[#171A21]">{m.name}</span>
+              {mode === 'AI' && <ExplainerButton name={m.name} />}
+            </div>
             <div className="text-right">
               <span className="font-bold tabular-nums">{m.val}</span>
               <span className="ml-2 text-[11px] font-bold text-[#16A34A]">{m.chg}</span>
@@ -801,6 +939,29 @@ export default function App() {
           <p className="text-xs text-[#667085]">{m.desc}</p>
         </div>
       ))}
+
+      <div className="pt-2">
+        <h4 className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-widest mb-3 px-1">Top Movers</h4>
+        <div className="space-y-3">
+          {[
+            { name: 'Reliance Industries', price: '2,847.15', chg: '+0.84%', up: true },
+            { name: 'HDFC Bank', price: '1,624.30', chg: '-1.12%', up: false },
+            { name: 'Infosys', price: '1,542.00', chg: '+2.14%', up: true },
+            { name: 'Tata Motors', price: '984.40', chg: '+1.45%', up: true },
+          ].map((stock, i) => (
+            <div key={i} className="flex justify-between items-center p-1">
+              <div className="flex items-center">
+                <span className="text-sm font-bold text-[#171A21]">{stock.name}</span>
+                {mode === 'AI' && <ExplainerButton name={stock.name} />}
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-bold tabular-nums">₹{stock.price}</p>
+                <p className={`text-[10px] font-bold ${stock.up ? 'text-[#16A34A]' : 'text-[#DC2626]'}`}>{stock.chg}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 
@@ -888,6 +1049,162 @@ export default function App() {
     );
   };
 
+  const ExplainerButton = ({ name, id }: { name: string, id?: string }) => {
+    if (!EXPLAINERS[name]) return null;
+    return (
+      <button 
+        id={id}
+        onClick={(e) => {
+          e.stopPropagation();
+          setExplainerData(EXPLAINERS[name]);
+          setIsExplainerSheetOpen(true);
+        }}
+        className="w-5 h-5 rounded-full border border-[#E7EBF2] bg-white flex items-center justify-center text-[#667085] hover:bg-[#F1F4F9] transition-colors ml-1.5 flex-shrink-0"
+        style={{ padding: '0' }}
+      >
+        <span className="text-[10px] font-bold leading-none">i</span>
+      </button>
+    );
+  };
+
+  const MarketContextCard = () => (
+    <div className="bg-white p-4 rounded-[18px] border border-[#E7EBF2] shadow-sm">
+      <div className="flex items-center gap-1.5 mb-1">
+        <Sparkles size={12} className="text-[#2563EB]" />
+        <span className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">Market context</span>
+      </div>
+      <h3 className="text-sm font-bold text-[#171A21] mb-1">RBI week could keep rate-sensitive stocks active</h3>
+      <p className="text-xs text-[#667085] leading-relaxed mb-3">
+        Banks, NBFCs, and rate-sensitive sectors may stay in focus this week. Keep an eye on financial holdings and broad market ETFs.
+      </p>
+      <button className="text-xs font-bold text-[#2563EB] flex items-center gap-1">
+        See why this matters <ChevronRight size={14} />
+      </button>
+    </div>
+  );
+
+  const OptionsClarityCard = () => (
+    <div id="tour-options" className="bg-[#FAFBFE] p-4 rounded-[18px] border border-[#D1E0FF] shadow-sm">
+      <div className="flex items-center gap-1.5 mb-1">
+        <Zap size={12} className="text-[#2563EB]" />
+        <span className="text-[10px] font-bold text-[#2563EB] uppercase tracking-wider">Options made simpler</span>
+      </div>
+      <h3 className="text-sm font-bold text-[#171A21] mb-1">See one safer setup, not the whole chain</h3>
+      <p className="text-xs text-[#667085] leading-relaxed mb-3">
+        Turn complex option data into a simple market view, defined risk, and a clear next step.
+      </p>
+      
+      <div className="flex gap-2 mb-4">
+        <div className="bg-white px-2 py-1 rounded-lg border border-[#E7EBF2] flex flex-col">
+          <span className="text-[8px] text-[#98A2B3] font-bold uppercase">View</span>
+          <span className="text-[10px] font-bold text-[#16A34A]">Mildly Bullish</span>
+        </div>
+        <div className="bg-white px-2 py-1 rounded-lg border border-[#E7EBF2] flex flex-col">
+          <span className="text-[8px] text-[#98A2B3] font-bold uppercase">Risk</span>
+          <span className="text-[10px] font-bold text-[#171A21]">Defined</span>
+        </div>
+        <div className="bg-white px-2 py-1 rounded-lg border border-[#E7EBF2] flex flex-col">
+          <span className="text-[8px] text-[#98A2B3] font-bold uppercase">Max Loss</span>
+          <span className="text-[10px] font-bold text-[#E31C3D]">₹1,850</span>
+        </div>
+      </div>
+
+      <button 
+        onClick={() => setIsOptionsClaritySheetOpen(true)}
+        className="w-full py-2.5 bg-[#171A21] text-white rounded-xl text-xs font-bold"
+      >
+        Explain this setup
+      </button>
+    </div>
+  );
+
+  const renderExplainerSheetContent = () => {
+    if (!explainerData) return null;
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-black text-[#171A21]">{explainerData.name}</h3>
+          {explainerData.tag && (
+            <span className="px-2 py-1 bg-[#EEF4FF] text-[#2563EB] text-[10px] font-bold rounded-lg">
+              {explainerData.tag}
+            </span>
+          )}
+        </div>
+        
+        <div className="bg-[#FAFBFE] p-4 rounded-2xl border border-[#E7EBF2]">
+          <div className="flex items-center gap-1.5 mb-2">
+            <Info size={14} className="text-[#667085]" />
+            <span className="text-[10px] font-bold text-[#98A2B3] uppercase tracking-wider">
+              {activeTab === 'Portfolio' ? 'Portfolio note' : 'Today’s context'}
+            </span>
+          </div>
+          <p className="text-sm text-[#171A21] leading-relaxed font-medium">
+            {explainerData.context}
+          </p>
+        </div>
+
+        <div className="pt-2">
+          <button 
+            onClick={() => setIsExplainerSheetOpen(false)}
+            className="w-full py-3.5 bg-[#171A21] text-white rounded-xl font-bold"
+          >
+            Got it
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderOptionsClaritySheetContent = () => (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-xl font-black text-[#171A21]">Options Clarity</h3>
+        <p className="text-sm text-[#667085]">A simpler way to read this trade idea.</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-[#F0FDF4] p-3 rounded-2xl border border-[#DCFCE7]">
+          <span className="text-[10px] font-bold text-[#166534] uppercase tracking-wider block mb-1">Market view</span>
+          <p className="text-sm font-bold text-[#166534]">Mildly bullish for current expiry</p>
+          <p className="text-[11px] text-[#166534]/70 mt-1">Call activity is stronger near range.</p>
+        </div>
+        <div className="bg-[#FEF2F2] p-3 rounded-2xl border border-[#FEE2E2]">
+          <span className="text-[10px] font-bold text-[#991B1B] uppercase tracking-wider block mb-1">Safer setup</span>
+          <p className="text-sm font-bold text-[#991B1B]">Bull Call Spread</p>
+          <p className="text-[11px] text-[#991B1B]/70 mt-1">Limits downside vs naked call.</p>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <h4 className="text-xs font-bold text-[#98A2B3] uppercase tracking-wider">In simple terms</h4>
+        <div className="space-y-2">
+          {OPTIONS_CLARITY_DATA.terms.map((term, i) => (
+            <div key={i} className="flex gap-3 items-start">
+              <CheckCircle2 size={16} className="text-[#16A34A] flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-[#171A21] font-medium">{term}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <h4 className="text-xs font-bold text-[#98A2B3] uppercase tracking-wider">What to watch</h4>
+        <div className="grid grid-cols-1 gap-2">
+          {OPTIONS_CLARITY_DATA.watchouts.map((w, i) => (
+            <div key={i} className="flex justify-between items-center p-3 bg-[#FAFBFE] rounded-xl border border-[#E7EBF2]">
+              <span className="text-sm font-bold text-[#171A21]">{w.label}</span>
+              <p className="text-xs text-[#667085] text-right max-w-[180px]">{w.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex gap-3 pt-2">
+        <button className="flex-1 py-3.5 bg-[#171A21] text-white rounded-xl font-bold">Try in demo</button>
+        <button className="flex-1 py-3.5 bg-white border border-[#E7EBF2] text-[#171A21] rounded-xl font-bold">Learn in 30s</button>
+      </div>
+    </div>
+  );
   const renderHealthSheetContent = () => (
     <div className="space-y-6">
       <div className="bg-[#FAFBFE] p-6 rounded-[24px] border border-[#E7EBF2] flex flex-col items-center text-center">
@@ -973,8 +1290,8 @@ export default function App() {
         ? ["What does 62/100 mean?", "Which fund overlaps the most?", "How can I improve diversification?"]
         : ["62/100 का क्या मतलब है?", "कौन सा फंड सबसे ज्यादा ओवरलैप करता है?", "मैं विविधीकरण कैसे सुधार सकता हूं?"],
       Markets: language === 'EN'
-        ? ["Why is NIFTY up today?", "Does this affect my portfolio?", "What should I ignore today?"]
-        : ["आज निफ्टी ऊपर क्यों है?", "क्या यह मेरे पोर्टफोलियो को प्रभावित करता है?", "मुझे आज क्या अनदेखा करना चाहिए?"],
+        ? ["Explain this setup simply", "What is my max loss here?", "Why is this safer than buying a call?", "What should I watch before expiry?"]
+        : ["इस सेटअप को सरलता से समझाएं", "यहाँ मेरा अधिकतम नुकसान क्या है?", "यह कॉल खरीदने से सुरक्षित क्यों है?", "एक्सपायरी से पहले मुझे क्या देखना चाहिए?"],
       Orders: language === 'EN'
         ? ["What was my last completed order?", "Do I have an active SIP?", "What should I check after buying?"]
         : ["मेरा पिछला पूरा हुआ ऑर्डर क्या था?", "क्या मेरा कोई सक्रिय SIP है?", "खरीदने के बाद मुझे क्या चेक करना चाहिए?"],
@@ -994,6 +1311,10 @@ export default function App() {
       "Does this affect my portfolio?": "Yes, your portfolio is up 0.6% today, largely driven by your HDFC and Reliance exposure which are key NIFTY components.",
       "What was my last completed order?": "Your last order was a Buy of NIFTYBEES which was completed successfully earlier today.",
       "Where can I see reports?": "You can find all your tax, P&L, and transaction reports under the 'Reports' section in the 'More' tab.",
+      "Explain this setup simply": "This Bull Call Spread uses two options to lower your cost. You benefit if the market moves up, but your risk is strictly limited.",
+      "What is my max loss here?": "Your maximum loss is ₹1,850. This happens only if NIFTY stays below your strike price at expiry.",
+      "Why is this safer than buying a call?": "By selling a higher call, you offset the cost of the call you bought. This lowers your break-even point and limits your total risk.",
+      "What should I watch before expiry?": "Watch the 'Time Decay' and 'Open Interest'. As expiry nears, the value of your options changes faster.",
       // Hindi Answers
       "मेरे पोर्टफोलियो को क्या नुकसान पहुंचा रहा है?": "सबसे बड़ी समस्या आपके इक्विटी म्यूचुअल फंडों में ओवरलैप है। रिटर्न अच्छे हैं, लेकिन विविधीकरण उम्मीद से कमजोर है।",
       "ओवरलैप अधिक क्यों है?": "आपके कई फंडों में रिलायंस, एचडीएफसी बैंक, इंफोसिस और आईसीआईसीआई बैंक जैसे समान टॉप स्टॉक हैं।",
@@ -1004,7 +1325,11 @@ export default function App() {
       "आज निफ्टी ऊपर क्यों है?": "सकारात्मक वैश्विक संकेतों और रिलायंस और टीसीएस जैसे हैवीवेट में मजबूत खरीदारी आज तेजी को बढ़ावा दे रही है।",
       "क्या यह मेरे पोर्टफोलियो को प्रभावित करता है?": "हाँ, आपका पोर्टफोलियो आज 0.6% ऊपर है, जो मुख्य रूप से आपके एचडीएफसी और रिलायंस एक्सपोजर द्वारा संचालित है जो प्रमुख निफ्टी घटक हैं।",
       "मेरा पिछला पूरा हुआ ऑर्डर क्या था?": "आपका पिछला ऑर्डर NIFTYBEES की खरीद थी जो आज पहले सफलतापूर्वक पूरा हो गया था।",
-      "मैं रिपोर्ट कहां देख सकता हूं?": "आप 'More' टैब में 'Reports' सेक्शन के तहत अपने सभी टैक्स, P&L और ट्रांजेक्शन रिपोर्ट पा सकते हैं।"
+      "मैं रिपोर्ट कहां देख सकता हूं?": "आप 'More' टैब में 'Reports' सेक्शन के तहत अपने सभी टैक्स, P&L और ट्रांजेक्शन रिपोर्ट पा सकते हैं।",
+      "इस सेटअप को सरलता से समझाएं": "यह बुल कॉल स्प्रेड आपकी लागत कम करने के लिए दो विकल्पों का उपयोग करता है। यदि बाजार ऊपर जाता है तो आपको लाभ होता है, लेकिन आपका जोखिम कड़ाई से सीमित है।",
+      "यहाँ मेरा अधिकतम नुकसान क्या है?": "आपका अधिकतम नुकसान ₹1,850 है। यह केवल तभी होता है जब निफ्टी एक्सपायरी पर आपके स्ट्राइक प्राइस से नीचे रहता है।",
+      "यह कॉल खरीदने से सुरक्षित क्यों है?": "एक उच्च कॉल बेचकर, आप अपने द्वारा खरीदी गई कॉल की लागत की भरपाई करते हैं। यह आपके ब्रेक-इवन पॉइंट को कम करता है और आपके कुल जोखिम को सीमित करता।",
+      "एक्सपायरी से पहले मुझे क्या देखना चाहिए?": "टाइम डिके और ओपन इंटरेस्ट देखें। जैसे-जैसे एक्सपायरी नजदीक आती है, आपके विकल्पों का मूल्य तेजी से बदलता है।"
     };
 
     return (
@@ -1342,6 +1667,24 @@ export default function App() {
             subtext={TRANSLATIONS[language].langSubtext}
           >
             {renderLanguageSheetContent()}
+          </BottomSheet>
+
+          <BottomSheet 
+            isOpen={isExplainerSheetOpen} 
+            onClose={() => setIsExplainerSheetOpen(false)}
+            title={explainerData?.name || ""}
+            subtext={explainerData?.tag || "Contextual insight"}
+          >
+            {renderExplainerSheetContent()}
+          </BottomSheet>
+
+          <BottomSheet 
+            isOpen={isOptionsClaritySheetOpen} 
+            onClose={() => setIsOptionsClaritySheetOpen(false)}
+            title="Options Clarity"
+            subtext="A simpler way to read this trade idea."
+          >
+            {renderOptionsClaritySheetContent()}
           </BottomSheet>
 
           {/* Toast */}
